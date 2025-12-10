@@ -1,0 +1,62 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+type Theme = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    // Check localStorage first
+    const saved = localStorage.getItem('manila-watch-theme') as Theme;
+    if (saved) return saved;
+
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+
+    return 'dark'; // Default to dark theme
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+
+    localStorage.setItem('manila-watch-theme', theme);
+  }, [theme]);
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+  };
+
+  const toggleTheme = () => {
+    setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}

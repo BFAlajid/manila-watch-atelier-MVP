@@ -1,0 +1,131 @@
+// Prisma Schema for Manila Watch Atelier
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]
+
+  @@index([email])
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique // MWA-2025-0001
+
+  // Customer
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+
+  // Watch Details
+  watchId         String
+  watchBrand      String
+  watchModel      String
+  watchReference  String?
+
+  // Pricing (stored in PHP)
+  pricePhp        Decimal       @db.Decimal(10, 2)
+  shippingCost    Decimal       @db.Decimal(10, 2) @default(0)
+  totalPhp        Decimal       @db.Decimal(10, 2)
+
+  // Display currency (what customer saw)
+  displayCurrency String
+  displayTotal    Decimal       @db.Decimal(10, 2)
+  exchangeRate    Decimal       @db.Decimal(10, 6)
+
+  // Payment
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+
+  // Stripe payment
+  stripePaymentId String?       @unique
+
+  // Bank transfer
+  paymentProofUrl String?       // Screenshot URL
+  bankReference   String?       // Customer's bank reference
+
+  // Fulfillment
+  fulfillmentType FulfillmentType
+
+  // Shipping details (if applicable)
+  shippingName    String?
+  shippingPhone   String?
+  shippingAddress String?       @db.Text
+  shippingCity    String?
+  shippingPostal  String?
+  trackingNumber  String?
+
+  // Pickup details (if applicable)
+  pickupDate      DateTime?
+  pickupTime      String?
+  pickupNotes     String?       @db.Text
+
+  // Order lifecycle
+  status          OrderStatus   @default(PENDING)
+  notes           String?       @db.Text
+  adminNotes      String?       @db.Text
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([orderNumber])
+  @@index([paymentStatus])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum PaymentMethod {
+  STRIPE_CARD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  AWAITING_VERIFICATION  // Bank transfer uploaded, waiting admin approval
+  VERIFIED               // Payment confirmed
+  FAILED
+  REFUNDED
+}
+
+enum FulfillmentType {
+  SHIPPING
+  PICKUP
+}
+
+enum OrderStatus {
+  PENDING                // Just created
+  PAYMENT_PENDING        // Waiting for payment
+  PAYMENT_VERIFIED       // Payment confirmed
+  PROCESSING             // Preparing order
+  READY_FOR_PICKUP       // Pickup orders only
+  SHIPPED                // Shipping orders only
+  DELIVERED              // Completed
+  CANCELLED
+}
+
+// Admin users
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Hashed with bcrypt
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}

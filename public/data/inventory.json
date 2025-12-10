@@ -1,0 +1,981 @@
+[
+  {
+    "id": "watch-001",
+    "slug": "rolex-datejust-31mm-two-tone",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "278273",
+    "name": "Datejust 31mm Two-Tone",
+    "price_php": 850000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "A stunning Rolex Datejust in two-tone steel and yellow gold. Features a jubilee bracelet and elegant white diamond dial. This classic timepiece exemplifies Rolex craftsmanship with its fluted bezel and iconic design. Perfect for both formal occasions and daily elegance. Comes with full authentication and documentation.",
+    "images": [
+      "/images/watches/515854125_758367403235016_2502512267609732010_n.jpg",
+      "/images/watches/566541052_2407016786379949_7623155474929843087_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 2236 Automatic",
+      "caseMaterial": "Stainless Steel & 18K Yellow Gold",
+      "diameter": "31mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2024-12-09T00:00:00Z"
+  },
+  {
+    "id": "watch-002",
+    "slug": "rolex-air-king-40mm-white-dial",
+    "brand": "Rolex",
+    "model": "Air-King",
+    "reference": "126900",
+    "name": "Air-King 40mm White Dial",
+    "price_php": 650000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Classic Rolex Air-King with clean white dial and distinctive Arabic numerals at 3, 6, and 9 o'clock. A tribute to aviation pioneers, this sports watch combines exceptional reliability with understated elegance. Features Rolex's superlative chronometer certification and robust Oyster case. Perfect condition with original box and papers.",
+    "images": [
+      "/images/watches/575870211_1146352707175342_7073445245693752964_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3230 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2024-12-09T00:00:00Z"
+  },
+  {
+    "id": "watch-003",
+    "slug": "rolex-sea-dweller-43mm",
+    "brand": "Rolex",
+    "model": "Sea-Dweller",
+    "reference": "126600",
+    "name": "Sea-Dweller 43mm",
+    "price_php": 1200000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Professional dive watch engineered for extreme depths. Features the iconic black dial, unidirectional rotatable Cerachrom bezel, and helium escape valve. Built with Rolex's Ringlock System for exceptional pressure resistance. A true tool watch that has conquered the ocean depths while maintaining legendary Rolex precision and reliability.",
+    "images": [
+      "/images/watches/585982654_10163459721504836_6340244378467313317_n.jpg",
+      "/images/watches/586549820_10163459722094836_1169522541467044396_n.jpg",
+      "/images/watches/586732907_10163459722309836_7611851683016662520_n.jpg",
+      "/images/watches/587818243_10163459721864836_1921683105312901032_n.jpg",
+      "/images/watches/588464618_10163459721619836_428267160362481275_n.jpg",
+      "/images/watches/588803421_10163459719799836_6939632589396722386_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "43mm",
+      "waterResistance": "1220m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.987Z"
+  },
+  {
+    "id": "watch-004",
+    "slug": "rolex-submariner-date-ceramic",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "126610LN",
+    "name": "Submariner Date Ceramic",
+    "price_php": 1050000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "The legendary Rolex Submariner Date with modern ceramic bezel. This iconic dive watch features a black dial, date function with Cyclops lens, and the highly sought-after Cerachrom bezel insert that's virtually scratch-proof. Complete with original box and papers dated 2021. A timeless investment piece in excellent condition that represents the pinnacle of sports watch design.",
+    "images": [
+      "figma:asset/07f1147c0f25ede9aa338ba9c51e437a4cac912f.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "41mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2024-12-09T00:00:00Z"
+  },
+  {
+    "id": "watch-005",
+    "slug": "rolex-day-date-36mm-full-gold-diamonds",
+    "brand": "Rolex",
+    "model": "Day-Date",
+    "reference": "128238",
+    "name": "Day-Date 36mm Full Gold Diamonds",
+    "price_php": 2850000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Exquisite full 18K yellow gold Rolex Day-Date with factory diamond bezel and chocolate diamond dial. This stunning timepiece features 10 factory-set diamond hour markers on a rich chocolate dial, complemented by a sparkling diamond bezel. The President bracelet adds to its luxurious appeal. A true statement piece for discerning collectors who appreciate the finest in Swiss watchmaking.",
+    "images": [
+      "/images/watches/578004370_813816914961758_7502182389608165417_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3255 Automatic",
+      "caseMaterial": "18K Yellow Gold",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2024-12-09T00:00:00Z"
+  },
+  {
+    "id": "watch-006",
+    "slug": "rolex-milgauss-black-dial-gv",
+    "brand": "Rolex",
+    "model": "Milgauss",
+    "reference": "116400GV",
+    "name": "Milgauss Black Dial GV",
+    "price_php": 820000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "The distinctive Rolex Milgauss with its signature green sapphire crystal and orange lightning bolt seconds hand. Originally designed for scientists and engineers working in high magnetic field environments, this anti-magnetic watch is a favorite among collectors for its unique design elements. Features smooth bezel, black dial with luminescent hour markers, and exceptional 1,000 gauss magnetic resistance. Complete with box and papers.",
+    "images": [
+      "/images/watches/579910806_24958614173823160_3148753747947716812_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3131 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-007",
+    "slug": "rolex-submariner-no-date-black",
+    "brand": "Rolex",
+    "model": "Submariner No-Date",
+    "reference": "124060",
+    "name": "Submariner No-Date Black",
+    "price_php": 950000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "The purist's choice - Rolex Submariner without date complication. Features the iconic black dial and black Cerachrom bezel insert with clean, symmetrical aesthetics. This legendary dive watch offers superior legibility underwater with its large luminescent markers and hands. The absence of the date window provides perfect dial symmetry appreciated by collectors. Powered by Rolex's latest movement technology with 70-hour power reserve.",
+    "images": [
+      "/images/watches/580915721_1439773308110309_4731107968848249299_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3230 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "41mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-008",
+    "slug": "rolex-daytona-two-tone-diamonds",
+    "brand": "Rolex",
+    "model": "Cosmograph Daytona",
+    "reference": "116523",
+    "name": "Daytona Two-Tone Diamonds",
+    "price_php": 1650000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Stunning Rolex Cosmograph Daytona in steel and yellow gold with white mother-of-pearl diamond dial. This iconic chronograph features factory-set diamond hour markers, three contrasting sub-dials, and the distinctive tachymetric bezel in 18K yellow gold. The two-tone Oyster bracelet perfectly balances sportiness and luxury. A highly coveted timepiece that combines racing heritage with elegant precious materials.",
+    "images": [
+      "/images/watches/581876870_1753315978591921_8975370994657187369_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 4130 Automatic Chronograph",
+      "caseMaterial": "Steel & 18K Yellow Gold",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T00:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-009",
+    "slug": "rolex-datejust-36mm-champagne-dial",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Champagne Dial",
+    "price_php": 345000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Classic Rolex Datejust 36mm featuring an elegant champagne dial with luminous hour markers. The perfect everyday luxury watch that transitions seamlessly from boardroom to evening wear. This timeless configuration showcases Rolex's mastery of understated elegance with its smooth bezel and Oyster bracelet. A versatile timepiece that epitomizes refined taste and horological excellence.",
+    "images": [
+      "/images/watches/582100256_823181440619864_6186715081814314831_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-010",
+    "slug": "rolex-datejust-36mm-anniversary-diamonds",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126284RBR",
+    "name": "Datejust 36mm Anniversary Diamonds",
+    "price_php": 445000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Rolex Datejust 36mm featuring a stunning diamond-set dial with anniversary motif. This sophisticated timepiece combines the iconic Datejust silhouette with sparkling factory-set diamonds, creating a watch that celebrates special moments with timeless elegance. The dial's diamond configuration catches light from every angle, making this a true statement piece for collectors who appreciate luxury with subtle brilliance.",
+    "images": [
+      "/images/watches/582222101_1954773752139033_3368201881983131900_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-011",
+    "slug": "rolex-datejust-36mm-big-diamond-dial",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126300",
+    "name": "Datejust 36mm Big Diamond Dial",
+    "price_php": 430000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Rolex Datejust 36mm with prominent diamond hour markers that command attention. This exceptional piece features larger-than-usual diamond indices, creating a bold yet refined aesthetic. The diamonds are expertly set to maximize their brilliance while maintaining the Datejust's classic proportions. A perfect choice for those seeking a luxury watch with distinctive presence and undeniable sparkle.",
+    "images": [
+      "/images/watches/582678065_1265104995453534_5063166565127888820_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-012",
+    "slug": "rolex-datejust-36mm-silver-superjubilee",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Silver Superjubilee",
+    "price_php": 528000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Brand new Rolex Datejust 36mm with pristine silver dial on the iconic Jubilee bracelet. Complete set with box and papers, this modern reference showcases Rolex's latest innovations in movement technology and case finishing. The silver dial offers exceptional legibility with applied hour markers and luminescent hands. The five-link Jubilee bracelet provides supreme comfort and classic Rolex elegance.",
+    "images": [
+      "/images/watches/582951918_835251839093846_7528895937739540676_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.989Z"
+  },
+  {
+    "id": "watch-013",
+    "slug": "rolex-datejust-36mm-black-diamond-new",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Black Diamond New Model",
+    "price_php": 728000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Latest generation Rolex Datejust 36mm featuring a sophisticated black dial with factory-set diamond hour markers. Complete set with full box and papers, this newest reference represents the pinnacle of Datejust evolution. The black dial creates stunning contrast with the diamond indices and white gold surrounds, while the updated movement offers 70 hours of power reserve. A modern classic that combines timeless design with cutting-edge watchmaking.",
+    "images": [
+      "/images/watches/583215464_1149233000717174_267363638992278164_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-014",
+    "slug": "rolex-datejust-36mm-champagne-jubilee",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Champagne Superjubilee",
+    "price_php": 588000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Rolex Datejust 36mm with warm champagne dial paired with the elegant Jubilee bracelet. Complete set with box and papers, this configuration is highly sought after for its versatile styling that complements both formal and casual attire. The champagne dial exudes warmth and sophistication, while the fluted bezel adds a touch of classic Rolex DNA. An investment-grade timepiece in excellent condition.",
+    "images": [
+      "/images/watches/583803009_1255455516344885_2685921553211029975_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-015",
+    "slug": "rolex-datejust-16030-tuxedo",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "16030",
+    "name": "Datejust 16030 Tuxedo",
+    "price_php": 368000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Vintage Rolex Datejust 16030 featuring the iconic 'Tuxedo' dial configuration with black outer ring and silver center. This classic reference from the 1980s represents an important era in Rolex history when the brand perfected the Datejust formula. The tuxedo dial pattern creates a striking two-tone effect that's both formal and distinctive. A collector's piece with vintage charm and timeless appeal, perfect for those who appreciate horological heritage.",
+    "images": [
+      "/images/watches/584387635_1216825420497601_7344070671461356208_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3035 Automatic",
+      "caseMaterial": "Stainless Steel",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-016",
+    "slug": "rolex-datejust-16013-buckley",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "16013",
+    "name": "Datejust 16013 Buckley",
+    "price_php": 355000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Vintage Rolex Datejust 16013 in two-tone configuration with the rare Buckley dial. This 1980s classic features Roman numerals and the distinctive two-tone steel and gold case that defined luxury sports watches of the era. The Buckley dial variant is particularly sought after by collectors for its bold numerals and clean design. A piece of Rolex history that combines vintage character with everyday wearability.",
+    "images": [
+      "/images/watches/595412925_10163513882804836_3479256646927628146_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3035 Automatic",
+      "caseMaterial": "Stainless Steel & 18K Yellow Gold",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-017",
+    "slug": "rolex-datejust-36mm-small-diamonds",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Small Diamonds",
+    "price_php": 415000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Rolex Datejust 36mm with delicate factory-set diamond hour markers. This refined configuration features smaller diamond indices that add subtle luxury without overwhelming the dial's classic proportions. The understated diamond setting appeals to collectors who appreciate elegance through restraint. A perfect daily luxury watch that adds just the right amount of sparkle to any occasion while maintaining the Datejust's timeless aesthetic.",
+    "images": [
+      "/images/watches/12442c22-a54e-4f05-ae86-bbc135c375ca.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-018",
+    "slug": "rolex-datejust-36mm-super-oyster",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126200",
+    "name": "Datejust 36mm Super Oyster New Reference",
+    "price_php": 599000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Dress",
+    "description": "Brand new Rolex Datejust 36mm on the sporty Oyster bracelet. Complete set with box and papers, this latest reference combines the Datejust's dressy elegance with the robust Oyster bracelet for enhanced versatility. The smooth bezel and clean dial create a contemporary look that's perfect for modern professionals. Features Rolex's latest Caliber 3235 movement with 70-hour power reserve and superlative chronometer certification.",
+    "images": [
+      "/images/watches/200ea1d8-fe5c-4b60-af39-c9d131ed1584.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-019",
+    "slug": "rolex-datejust-36mm-rose-gold-black",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126231",
+    "name": "Datejust 36mm Rose Gold Two-Tone Black",
+    "price_php": 599000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Stunning Rolex Datejust 36mm in steel and Everose gold with black dial on Jubilee bracelet. The warm rose gold accents beautifully complement the black dial, creating a sophisticated color combination that's both modern and timeless. Complete set with box and papers, this two-tone configuration represents excellent value in the precious metal watch category. The Jubilee bracelet adds comfort and classic Rolex styling.",
+    "images": [
+      "/images/watches/39d8e5c4-0241-4574-a324-c9abf6651637.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel & 18K Everose Gold",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-020",
+    "slug": "rolex-datejust-36mm-motif-dial-new",
+    "brand": "Rolex",
+    "model": "Datejust",
+    "reference": "126234",
+    "name": "Datejust 36mm Motif Dial New Reference",
+    "price_php": 748000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Latest generation Rolex Datejust 36mm featuring an exclusive motif dial pattern. Complete set with full box and papers, this newest reference showcases Rolex's mastery of dial artistry with intricate guilloche or decorative patterns. The textured dial catches light dynamically, creating visual depth and interest. A rare configuration for collectors seeking something truly distinctive while maintaining the Datejust's iconic DNA.",
+    "images": [
+      "/images/watches/472b96e2-649e-463b-81d5-ab77cbb6587f.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "36mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-021",
+    "slug": "rolex-gmt-master-ii-16710",
+    "brand": "Rolex",
+    "model": "GMT-Master II",
+    "reference": "16710",
+    "name": "GMT-Master II Pepsi",
+    "price_php": 599000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Classic Rolex GMT-Master II ref. 16710 with iconic Pepsi bezel. This legendary traveler's watch features the distinctive red and blue Cerachrom bezel insert that has become synonymous with GMT watches worldwide. Capable of tracking multiple time zones simultaneously, this tool watch combines practicality with timeless design. The 16710 represents the final evolution of the aluminum bezel GMT-Master II before ceramic bezels, making it a significant collector's piece.",
+    "images": [
+      "/images/watches/66b33695-23f7-4f29-8af0-27ac2cae45dc.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3186 Automatic GMT",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-022",
+    "slug": "rolex-milgauss-116400gv-set",
+    "brand": "Rolex",
+    "model": "Milgauss",
+    "reference": "116400GV",
+    "name": "Milgauss GV Green Crystal",
+    "price_php": 588000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Rolex Milgauss 116400GV with the iconic green sapphire crystal. Complete set with box and papers, this anti-magnetic masterpiece was designed for scientists and engineers but has become a favorite among collectors for its unique aesthetics. The distinctive orange lightning bolt seconds hand and smooth bezel create a look unlike any other Rolex. Protected against magnetic fields up to 1,000 gauss, combining scientific functionality with bold design.",
+    "images": [
+      "/images/watches/81238aff-e634-4d8d-bd7c-594423efe880.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3131 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-023",
+    "slug": "rolex-submariner-16613t-bluesy",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "16613T",
+    "name": "Submariner Two-Tone Bluesy",
+    "price_php": 555000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Rolex Submariner Date 16613T in the coveted 'Bluesy' configuration with steel and yellow gold case and blue dial. This two-tone diver combines the Submariner's legendary 300m water resistance with the luxury of 18K yellow gold accents. The blue dial and matching blue bezel create a cohesive look that's both sporty and elegant. A discontinued reference that's increasingly sought after by collectors.",
+    "images": [
+      "/images/watches/8d80bd95-c367-4fdc-b7aa-b877202003f7.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3135 Automatic",
+      "caseMaterial": "Stainless Steel & 18K Yellow Gold",
+      "diameter": "40mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-024",
+    "slug": "rolex-submariner-126610ln-set",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "126610LN",
+    "name": "Submariner 41mm Date Black",
+    "price_php": 758000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Latest generation Rolex Submariner Date 41mm with black dial and ceramic bezel. Complete set with box and papers, this newest reference features an enlarged case size and updated Caliber 3235 movement with 70-hour power reserve. The Cerachrom bezel insert is virtually scratchproof and fade-resistant. A modern icon that represents the pinnacle of dive watch evolution, combining cutting-edge technology with timeless design.",
+    "images": [
+      "/images/watches/acc50f08-0eaf-481f-910a-7d8e497d2d22.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "41mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-025",
+    "slug": "rolex-oyster-perpetual-41-green",
+    "brand": "Rolex",
+    "model": "Oyster Perpetual",
+    "reference": "124300",
+    "name": "Oyster Perpetual 41mm Green",
+    "price_php": 538000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Rolex Oyster Perpetual 41mm with striking green dial. Complete set with box and papers, this pure time-only watch showcases Rolex's confident simplicity. The vibrant green dial has become one of the most sought-after configurations in the OP lineup, offering bold color in a classically proportioned case. No date window means perfect symmetry and a clean aesthetic. A modern classic that's already appreciating in value.",
+    "images": [
+      "/images/watches/e5a7141f-bcc7-4eda-aa2f-e5a8e6775b76.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3230 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "41mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-026",
+    "slug": "rolex-air-king-126900-set",
+    "brand": "Rolex",
+    "model": "Air-King",
+    "reference": "126900",
+    "name": "Air-King 40mm",
+    "price_php": 445000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Latest Rolex Air-King 40mm with distinctive black and green dial. Complete set with box and papers, this aviation-inspired timepiece features large Arabic numerals at 3, 6, and 9 o'clock and a prominent minute track. The Air-King pays homage to aviation pioneers while incorporating modern Rolex technology. Updated with Caliber 3230 movement, this is the most accessible professional Rolex sports watch, offering exceptional value and iconic design.",
+    "images": [
+      "/images/watches/eb2aa40d-00ef-49e8-89cc-8b84a31586b1.png"
+    ],
+    "specifications": {
+      "movement": "Caliber 3230 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2025-12-09T17:33:31.990Z"
+  },
+  {
+    "id": "watch-027",
+    "slug": "rolex-daytona-zenith-panda-diamond",
+    "brand": "Rolex",
+    "model": "Cosmograph Daytona",
+    "reference": "16520",
+    "name": "Daytona Zenith Panda Diamonds",
+    "price_php": 1100000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Rare Rolex Daytona Zenith ref. 16520 with iconic Panda dial configuration and diamond hour markers. This transitional Daytona features the Zenith El Primero-based movement before Rolex developed their in-house chronograph caliber. The white dial with black sub-dials creates the highly desirable 'Panda' look, enhanced by factory-set diamonds. A significant collector's piece representing an important chapter in Daytona history.",
+    "images": [
+      "/watches/daytona-zenith-panda.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 4030 Automatic Chronograph",
+      "caseMaterial": "Stainless Steel",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-028",
+    "slug": "rolex-submariner-16610",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "16610",
+    "name": "Submariner 16610 Black",
+    "price_php": 520000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Classic Rolex Submariner 16610 with black dial and aluminum bezel. This reference represents the last aluminum bezel Submariner Date, produced for over two decades from 1989-2010. The 16610 is beloved by collectors for its vintage charm combined with modern reliability. Features the robust Caliber 3135 movement and timeless 40mm proportions. A true tool watch that has proven its worth in countless underwater adventures.",
+    "images": [
+      "/watches/submariner-16610.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3135 Automatic",
+      "caseMaterial": "Stainless Steel",
+      "diameter": "40mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-029",
+    "slug": "rolex-submariner-126618lb-bluesy-gold",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "126618LB",
+    "name": "Submariner 41mm Bluesy Full Gold",
+    "price_php": 2500000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Extraordinary Rolex Submariner Date in full 18K yellow gold with blue dial and ceramic bezel. Complete set with box and papers, this is the ultimate luxury dive watch combining Submariner functionality with precious metal prestige. The royal blue dial and matching ceramic bezel create stunning visual harmony, while the solid gold construction adds substantial weight and luxury. A statement piece that commands attention both underwater and in the boardroom.",
+    "images": [
+      "/watches/submariner-bluesy-gold.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3235 Automatic",
+      "caseMaterial": "18K Yellow Gold",
+      "diameter": "41mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-030",
+    "slug": "rolex-daytona-116505-rose-gold",
+    "brand": "Rolex",
+    "model": "Cosmograph Daytona",
+    "reference": "116505",
+    "name": "Daytona Full Rose Gold",
+    "price_php": 2800000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Spectacular Rolex Cosmograph Daytona in full 18K Everose gold. Complete set with box and papers, this precious metal chronograph represents the pinnacle of Rolex's iconic racing watch. The warm rose gold case and bracelet create a luxurious presence, while the in-house Caliber 4130 chronograph movement delivers precision timing. The chocolate dial with pink gold sub-dials offers perfect color harmony. An investment-grade timepiece for the serious collector.",
+    "images": [
+      "/watches/daytona-rose-gold.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 4130 Automatic Chronograph",
+      "caseMaterial": "18K Everose Gold",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-031",
+    "slug": "rolex-submariner-16610lv-kermit",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "16610LV",
+    "name": "Submariner Kermit Green",
+    "price_php": 699000,
+    "condition": "excellent",
+    "box": false,
+    "papers": false,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Rare Rolex Submariner 16610LV 'Kermit' with green aluminum bezel. This special anniversary edition was produced to celebrate 50 years of the Submariner and has become one of the most collectible modern Submariners. The distinctive green bezel paired with black dial creates a unique two-tone aesthetic that's instantly recognizable. Discontinued in 2010, the Kermit has appreciated significantly and remains highly sought after by collectors worldwide.",
+    "images": [
+      "/watches/submariner-kermit.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3135 Automatic",
+      "caseMaterial": "Stainless Steel 904L",
+      "diameter": "40mm",
+      "waterResistance": "300m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-032",
+    "slug": "rolex-sky-dweller-326934",
+    "brand": "Rolex",
+    "model": "Sky-Dweller",
+    "reference": "326934",
+    "name": "Sky-Dweller Steel & White Gold",
+    "price_php": 1180000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Rolex Sky-Dweller in steel with white gold fluted bezel. Complete set with box and papers, this sophisticated annual calendar and dual time zone watch represents Rolex's most complex modern timepiece. The innovative Saros system displays the month via apertures around the dial, while the off-center 24-hour disc tracks a second time zone. Perfect for the global traveler who demands both technical prowess and elegant design.",
+    "images": [
+      "/watches/sky-dweller.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 9001 Automatic Annual Calendar",
+      "caseMaterial": "Stainless Steel & 18K White Gold",
+      "diameter": "42mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-033",
+    "slug": "rolex-gmt-master-ii-126711-batgirl",
+    "brand": "Rolex",
+    "model": "GMT-Master II",
+    "reference": "126711CHNR",
+    "name": "GMT-Master II Batgirl Rootbeer",
+    "price_php": 945000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Rolex GMT-Master II 'Rootbeer' in steel and Everose gold with brown and black Cerachrom bezel. Complete set with box and papers, this stunning two-tone GMT features warm Everose gold accents that beautifully complement the brown and black bezel. The jubilee bracelet adds elegance while the independent 24-hour hand allows tracking of multiple time zones. A modern classic that's already highly coveted by collectors.",
+    "images": [
+      "/watches/gmt-batgirl-rootbeer.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 3285 Automatic GMT",
+      "caseMaterial": "Stainless Steel & 18K Everose Gold",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-034",
+    "slug": "rolex-daytona-116519-white-gold-strap",
+    "brand": "Rolex",
+    "model": "Cosmograph Daytona",
+    "reference": "116519LN",
+    "name": "Daytona White Gold Oysterflex",
+    "price_php": 1700000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Luxury",
+    "description": "Exceptional Rolex Cosmograph Daytona in 18K white gold with black ceramic bezel and Oysterflex bracelet. Complete set with box and papers, this precious metal Daytona combines the weight and prestige of white gold with the comfort and sportiness of Rolex's patented Oysterflex rubber strap. The black Cerachrom bezel is virtually scratchproof, while the in-house chronograph movement ensures precision timing. A perfect blend of luxury and performance.",
+    "images": [
+      "/watches/daytona-white-gold-oysterflex.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 4130 Automatic Chronograph",
+      "caseMaterial": "18K White Gold",
+      "diameter": "40mm",
+      "waterResistance": "100m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-035",
+    "slug": "rolex-submariner-1680-vintage-1981",
+    "brand": "Rolex",
+    "model": "Submariner Date",
+    "reference": "1680",
+    "year": 1981,
+    "name": "Submariner 1680 Full Set 1981",
+    "price_php": 1200000,
+    "condition": "excellent",
+    "box": true,
+    "papers": true,
+    "tier": "A",
+    "availability": "in_stock",
+    "category": "Sport",
+    "description": "Iconic vintage Rolex Submariner 1680 from 1981 with complete set including box and papers. This legendary reference was the first Submariner to feature a date function and red 'SUBMARINER' text. Produced from 1967-1979 with some examples into early 1980s, the 1680 represents a golden era of Rolex tool watches. Acrylic crystal, matte dial, and aluminum bezel give this watch tremendous vintage character. A museum-quality collector's piece with full provenance.",
+    "images": [
+      "/watches/submariner-1680.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 1575 Automatic",
+      "caseMaterial": "Stainless Steel",
+      "diameter": "40mm",
+      "waterResistance": "200m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  },
+  {
+    "id": "watch-036",
+    "slug": "patek-philippe-nautilus-5711-1a",
+    "brand": "Patek Philippe",
+    "model": "Nautilus",
+    "reference": "5711/1A-010",
+    "name": "Nautilus 5711/1A Tiffany Blue",
+    "price_php": 4200000,
+    "condition": "brand_new",
+    "box": true,
+    "papers": true,
+    "tier": "C",
+    "availability": "incoming",
+    "category": "Luxury",
+    "description": "The holy grail of luxury sports watches - Patek Philippe Nautilus 5711/1A with the exclusive Tiffany Blue dial. This final edition of the legendary 5711 represents the pinnacle of haute horlogerie in a sports watch format. The iconic porthole case design by Gerald Genta, horizontal embossed pattern dial, and integrated bracelet create perfect harmony. One of the most sought-after timepieces in the world, this discontinued reference commands significant premiums. An investment-grade collector's piece with impeccable pedigree.",
+    "images": [
+      "/images/watches/582039920_1552740659056333_1883400247607775309_n.jpg"
+    ],
+    "specifications": {
+      "movement": "Caliber 26-330 S C Automatic",
+      "caseMaterial": "Stainless Steel",
+      "diameter": "40mm",
+      "waterResistance": "120m"
+    },
+    "created_at": "2024-12-09T12:00:00Z",
+    "updated_at": "2024-12-09T12:00:00Z"
+  }
+]
