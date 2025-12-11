@@ -132,12 +132,12 @@ export function Footer() {
 
           {/* Legal */}
           <div className="flex items-center space-x-6 text-neutral-500 text-sm">
-            <a href="#" className="hover:text-[#D4AF37] transition-colors">
+            <Link to="/privacy-policy" className="hover:text-[#D4AF37] transition-colors">
               Privacy Policy
-            </a>
-            <a href="#" className="hover:text-[#D4AF37] transition-colors">
+            </Link>
+            <Link to="/terms-of-service" className="hover:text-[#D4AF37] transition-colors">
               Terms of Service
-            </a>
+            </Link>
             <Link to="/admin" className="hover:text-[#D4AF37] transition-colors">
               Admin
             </Link>

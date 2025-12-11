@@ -9,33 +9,17 @@ import { ComparisonButton } from './ComparisonButton';
 import { ViewCounter } from './ViewCounter';
 import { LowStockBadge } from './LowStockBadge';
 import { useWatch } from '../context/WatchContext';
-import inventoryData from '../data/inventory.json';
+
+// API configuration
+const API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001/api';
 
 interface ProductGridProps {
   limit?: number;
 }
 
-// Import watch images
-import watch1 from 'figma:asset/40ddce25e816838294d1702c319704a8686dc645.png';
-import watch2 from 'figma:asset/6510649f53fe69f45ad70939a1f203e84b49a615.png';
-import watch3 from 'figma:asset/f8dc7777327b42afd15eb4819ba6c3a3eab8abc9.png';
-import watch4 from 'figma:asset/07f1147c0f25ede9aa338ba9c51e437a4cac912f.png';
-import watch5 from 'figma:asset/cf97d32c2fc387c6addf7f4fae6f30eb5bd24553.png';
-import watch6 from 'figma:asset/63c9d5a6a2098633b091967e690527819dc1c029.png';
-import watch7 from 'figma:asset/0c9155e42b382419879c00270bf1f4e926f38d64.png';
-import watch8 from 'figma:asset/390f92a85bda9c4472f78caeb066537cb2e19721.png';
-
-// Map image imports to watch IDs
-const imageMap: Record<string, string> = {
-  'watch-001': watch1,
-  'watch-002': watch2,
-  'watch-003': watch3,
-  'watch-004': watch4,
-  'watch-005': watch5,
-  'watch-006': watch6,
-  'watch-007': watch7,
-  'watch-008': watch8,
-};
+// No longer using static image imports - all images uploaded via admin
 
 export function ProductGrid({ limit }: ProductGridProps) {
   const [watches, setWatches] = useState<any[]>([]);
@@ -45,31 +29,52 @@ export function ProductGrid({ limit }: ProductGridProps) {
   const [showFilters, setShowFilters] = useState(false);
   const { formatPrice } = useWatch();
 
-  // Load watches from localStorage or JSON
+  // Load watches from API with real-time updates
   useEffect(() => {
-    // Load from both inventory.json and localStorage
-    Promise.all([
-      Promise.resolve(inventoryData),
-      new Promise<any[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
-      })
-    ]).then(([inventory, stored]) => {
-      const allWatches = [...inventory, ...stored].map((watch: any) => ({
-        ...watch,
-        image: imageMap[watch.id] || watch.images[0],
-      }));
-      setWatches(allWatches);
-      
-      // Restore filter state
-      const savedFilters = localStorage.getItem('manila-watch-filters');
-      if (savedFilters) {
-        const { category, brand, price } = JSON.parse(savedFilters);
-        setSelectedCategory(category || 'All');
-        setSelectedBrand(brand || 'All');
-        setPriceRange(price || 'All');
+    let isFirstLoad = true;
+
+    const loadWatches = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/inventory`);
+        if (!response.ok) {
+          throw new Error('Failed to load inventory');
+        }
+
+        const inventory = await response.json();
+
+        // Use the first image from each watch's images array
+        const watchesWithImages = inventory.map((watch: any) => ({
+          ...watch,
+          image: watch.images && watch.images.length > 0 ? watch.images[0] : '',
+        }));
+
+        setWatches(watchesWithImages);
+
+        // Restore filter state (only on first load)
+        if (isFirstLoad) {
+          const savedFilters = localStorage.getItem('manila-watch-filters');
+          if (savedFilters) {
+            const { category, brand, price } = JSON.parse(savedFilters);
+            setSelectedCategory(category || 'All');
+            setSelectedBrand(brand || 'All');
+            setPriceRange(price || 'All');
+          }
+          isFirstLoad = false;
+        }
+      } catch (error) {
+        console.error('Error loading watches:', error);
+        setWatches([]);
       }
-    });
+    };
+
+    // Initial load
+    loadWatches();
+
+    // Poll for updates every 5 seconds (real-time inventory updates)
+    const interval = setInterval(loadWatches, 5000);
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
   }, []);
 
   // Save filter state
@@ -210,11 +215,14 @@ export function ProductGrid({ limit }: ProductGridProps) {
                 <FavoriteButton watchId={watch.id} />
                 <ShareButton slug={watch.slug} watchName={watch.name} />
               </div>
-              <div className="relative overflow-hidden">
+              <div className="relative overflow-hidden bg-black">
                 <img
                   src={watch.image}
                   alt={watch.name}
                   className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
                 />
                 <div className="absolute bottom-4 left-4">
                   <LowStockBadge tier={watch.tier} availability={watch.availability} />

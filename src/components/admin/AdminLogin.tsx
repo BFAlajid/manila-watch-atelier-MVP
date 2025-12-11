@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { Lock, User } from 'lucide-react';
 import { motion } from 'motion/react';
 
+// API configuration
+const API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001/api';
+
 interface AdminLoginProps {
   onLogin: () => void;
 }
@@ -12,21 +17,37 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Simple authentication (In production, use proper backend auth)
-    setTimeout(() => {
-      if (username === 'admin' && password === 'manila2024') {
-        localStorage.setItem('manila_admin_auth', 'true');
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Store auth token and expiration
+        localStorage.setItem('manila_admin_auth', data.token);
+        localStorage.setItem('manila_admin_expires', data.expiresAt.toString());
+        localStorage.setItem('manila_admin_username', data.username);
         onLogin();
       } else {
-        setError('Invalid credentials. Please try again.');
+        setError(data.error || 'Invalid credentials. Please try again.');
         setLoading(false);
       }
-    }, 500);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Authentication failed. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (

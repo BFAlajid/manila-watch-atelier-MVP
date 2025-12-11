@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SearchBar } from './SearchBar';
 import { CurrencyToggle } from './CurrencyToggle';
 import { CurrencySelector } from './CurrencySelector';
-import { ThemeToggle } from './ThemeToggle';
 import { useWatch } from '../context/WatchContext';
 
 export function Header() {
@@ -98,8 +97,6 @@ export function Header() {
               onCurrencyChange={setCurrency}
               className="hidden md:block"
             />
-
-            <ThemeToggle />
 
             <Link to="/favorites" className="relative">
               <motion.button

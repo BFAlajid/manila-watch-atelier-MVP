@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner@2.0.3';
 import { WatchProvider } from './context/WatchContext';
 import { AuthProvider } from './context/AuthContext';
@@ -14,6 +14,8 @@ import InventoryPage from './pages/InventoryPage';
 import WatchDetailPage from './pages/WatchDetailPage';
 import ComparePage from './pages/ComparePage';
 import FavoritesPage from './pages/FavoritesPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import { AdminPage } from './pages/AdminPage';
 import { AdminLogin } from './pages/admin/Login';
 import { AdminDashboard } from './pages/admin/Dashboard';
@@ -32,10 +34,13 @@ function App() {
 
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/homepage" element={<HomePage />} />
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/watch/:slug" element={<WatchDetailPage />} />
               <Route path="/compare" element={<ComparePage />} />
               <Route path="/favorites" element={<FavoritesPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms-of-service" element={<TermsOfServicePage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route

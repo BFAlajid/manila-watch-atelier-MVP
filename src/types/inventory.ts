@@ -40,7 +40,12 @@ export interface Watch {
   
   // Media
   images: string[];
-  
+  video?: {
+    type: 'youtube' | 'facebook' | 'upload' | 'url';
+    url: string; // YouTube/Facebook embed URL or direct video URL
+    thumbnail?: string; // Optional custom thumbnail
+  };
+
   // Technical
   specifications: WatchSpecifications;
   

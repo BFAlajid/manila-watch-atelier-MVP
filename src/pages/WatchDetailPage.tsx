@@ -15,6 +15,7 @@ import { InquiryModal } from '../components/InquiryModal';
 import { PaymentCalculator } from '../components/PaymentCalculator';
 import { RecentlyViewed } from '../components/RecentlyViewed';
 import { TrustBadges } from '../components/TrustBadges';
+import { WatchVideoPlayer } from '../components/WatchVideoPlayer';
 import { useWatch } from '../context/WatchContext';
 import type { Watch } from '../types/inventory';
 import { ScarcityIndicator } from '../components/psychology/ScarcityIndicator';
@@ -22,13 +23,18 @@ import { SocialProofBadge, TestimonialSnippet } from '../components/psychology/S
 import { UrgencyTimer } from '../components/psychology/UrgencyTimer';
 import { FOMOIndicator } from '../components/psychology/FOMOIndicator';
 
+// API configuration
+const API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001/api';
+
 export default function WatchDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [watch, setWatch] = useState<Watch | null>(null);
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
-  
+
   const {
     addToRecentlyViewed,
     incrementViewCount,
@@ -38,25 +44,31 @@ export default function WatchDetailPage() {
   useEffect(() => {
     if (!slug) return;
 
-    // Load watch data
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
-      })
-    ]).then(([inventoryData, storedData]) => {
-      const allWatches = [...inventoryData, ...storedData];
-      const foundWatch = allWatches.find((w: Watch) => w.slug === slug);
-      
-      if (foundWatch) {
-        setWatch(foundWatch);
-        addToRecentlyViewed(foundWatch.id);
-        incrementViewCount(foundWatch.id);
-      } else {
+    // Load watch data from API
+    const loadWatch = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/inventory`);
+        if (!response.ok) {
+          throw new Error('Failed to load inventory');
+        }
+
+        const allWatches = await response.json();
+        const foundWatch = allWatches.find((w: Watch) => w.slug === slug);
+
+        if (foundWatch) {
+          setWatch(foundWatch);
+          addToRecentlyViewed(foundWatch.id);
+          incrementViewCount(foundWatch.id);
+        } else {
+          navigate('/inventory');
+        }
+      } catch (error) {
+        console.error('Error loading watch:', error);
         navigate('/inventory');
       }
-    });
+    };
+
+    loadWatch();
   }, [slug, navigate, addToRecentlyViewed, incrementViewCount]);
 
   if (!watch) {
@@ -90,40 +102,67 @@ export default function WatchDetailPage() {
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Images */}
+            {/* Video & Images */}
             <div>
-              <div className="relative bg-neutral-900 rounded-2xl overflow-hidden mb-4">
-                <img
-                  src={watch.images[selectedImage]}
-                  alt={watch.name}
-                  className="w-full h-[600px] object-cover"
-                />
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <FavoriteButton watchId={watch.id} watchName={watch.name} />
-                  <ShareButton slug={watch.slug} watchName={watch.name} />
+              {/* Video Player - Shows First if Available */}
+              {watch.video && watch.video.url && (
+                <div className="mb-4">
+                  <WatchVideoPlayer
+                    video={watch.video}
+                    watchName={watch.name}
+                    posterImage={watch.images[0]}
+                  />
                 </div>
-              </div>
+              )}
+
+              {/* Image Gallery - Shows if no video, or below video */}
+              {(!watch.video || !watch.video.url) && (
+                <div className="relative bg-neutral-900 rounded-2xl overflow-hidden mb-4">
+                  <img
+                    src={watch.images[selectedImage]}
+                    alt={watch.name}
+                    className="w-full h-[600px] object-cover"
+                  />
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <FavoriteButton watchId={watch.id} watchName={watch.name} />
+                    <ShareButton slug={watch.slug} watchName={watch.name} />
+                  </div>
+                </div>
+              )}
 
               {/* Thumbnail Gallery */}
               {watch.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-4">
-                  {watch.images.map((img, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImage(index)}
-                      className={`rounded-lg overflow-hidden border-2 transition-colors ${
-                        selectedImage === index
-                          ? 'border-[#D4AF37]'
-                          : 'border-neutral-800 hover:border-neutral-700'
-                      }`}
-                    >
-                      <img
-                        src={img}
-                        alt={`${watch.name} view ${index + 1}`}
-                        className="w-full h-24 object-cover"
-                      />
-                    </button>
-                  ))}
+                <div>
+                  {watch.video && (
+                    <p className="text-sm text-neutral-400 mb-2">Watch Images:</p>
+                  )}
+                  <div className="grid grid-cols-4 gap-4">
+                    {watch.images.map((img, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImage(index)}
+                        className={`rounded-lg overflow-hidden border-2 transition-colors ${
+                          selectedImage === index
+                            ? 'border-[#D4AF37]'
+                            : 'border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`${watch.name} view ${index + 1}`}
+                          className="w-full h-24 object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons (when video is present) */}
+              {watch.video && (
+                <div className="flex gap-2 mt-4">
+                  <FavoriteButton watchId={watch.id} watchName={watch.name} />
+                  <ShareButton slug={watch.slug} watchName={watch.name} />
                 </div>
               )}
             </div>
