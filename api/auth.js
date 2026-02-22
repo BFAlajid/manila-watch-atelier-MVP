@@ -21,7 +21,10 @@ export default async function handler(req, res) {
 
     // Get credentials from environment variables
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-    const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || hashPassword('manila2024');
+    const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+    if (!ADMIN_PASSWORD_HASH) {
+      return res.status(500).json({ error: 'ADMIN_PASSWORD_HASH not configured in environment' });
+    }
 
     // Validate input
     if (!username || !password) {

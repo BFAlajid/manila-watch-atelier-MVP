@@ -59,12 +59,17 @@ export async function ensureDefaultAdmin() {
     const adminCount = await prisma.adminUser.count();
 
     if (adminCount === 0) {
-      // Create default admin
-      const hashedPassword = await hashPassword('WatchDealer2025!');
+      // Create default admin from environment variables
+      const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD;
+      if (!defaultPassword) {
+        console.warn('⚠️ No ADMIN_DEFAULT_PASSWORD set in environment. Skipping default admin creation.');
+        return;
+      }
+      const hashedPassword = await hashPassword(defaultPassword);
 
       await prisma.adminUser.create({
         data: {
-          email: 'sherard@manilawatch.com',
+          email: process.env.ADMIN_EMAIL || 'sherard@manilawatch.com',
           password: hashedPassword,
           name: 'Sherard W Ng',
           role: 'ADMIN',

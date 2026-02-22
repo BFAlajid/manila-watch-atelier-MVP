@@ -145,7 +145,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
           <div className="mt-6 pt-6 border-t border-neutral-200">
             <p className="text-xs text-neutral-500 text-center">
-              Default credentials: <code className="bg-neutral-100 px-2 py-1 rounded">admin / manila2024</code>
+              Contact your administrator for login credentials.
             </p>
           </div>
         </motion.div>

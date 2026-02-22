@@ -8,12 +8,12 @@ export interface AdminUser {
   role: 'admin' | 'dealer';
 }
 
-// In production, store in database with hashed passwords
+// Admin credentials loaded from environment variables
 const ADMIN_USERS = {
-  'sherard@manilawatch.com': {
+  [process.env.ADMIN_EMAIL || 'sherard@manilawatch.com']: {
     id: 'admin-001',
-    email: 'sherard@manilawatch.com',
-    password: 'WatchDealer2025!', // In production: use bcrypt.hash()
+    email: process.env.ADMIN_EMAIL || 'sherard@manilawatch.com',
+    password: process.env.ADMIN_PASSWORD || '',
     name: 'Sherard W Ng',
     role: 'admin' as const
   }
