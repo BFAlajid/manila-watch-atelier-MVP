@@ -24,6 +24,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Claude
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/
 .idea/
