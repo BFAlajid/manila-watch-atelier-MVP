@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner@2.0.3';
+import { Analytics } from '@vercel/analytics/react';
 import { WatchProvider } from './context/WatchContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -67,6 +68,7 @@ function App() {
                 },
               }}
             />
+            <Analytics />
             </div>
           </Router>
         </WatchProvider>
