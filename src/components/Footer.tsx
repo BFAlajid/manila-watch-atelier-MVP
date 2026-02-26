@@ -98,7 +98,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-neutral-900 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
           <p className="text-neutral-500 text-sm">
-            © 2025 Manila Watch Atelier. All rights reserved.
+            © {new Date().getFullYear()} Manila Watch Atelier. All rights reserved.
           </p>
 
           {/* Social Links */}

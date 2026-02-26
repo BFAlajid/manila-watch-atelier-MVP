@@ -1,13 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
-  Package, DollarSign, TrendingUp, Users, LogOut, Plus, Edit2, Trash2,
-  Eye, Search, Filter, Image as ImageIcon, Save, X
+  Package, DollarSign, TrendingUp, MessageSquare, LogOut, Plus, Edit2, Trash2,
+  Eye, Search, Filter, ChevronDown, ChevronUp, Mail, Phone, Clock,
+  X, RefreshCw, AlertCircle, Upload, Image as ImageIcon, Save, Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import inventoryData from '../../data/inventory.json';
 
+// ---------------------------------------------------------------------------
+// API config
+// ---------------------------------------------------------------------------
+const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('admin_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface Watch {
   id: string;
   slug: string;
@@ -15,73 +31,482 @@ interface Watch {
   model: string;
   reference: string;
   name: string;
+  pricePHP: number;
   price_php: number;
-  condition: string;
-  box: boolean;
-  papers: boolean;
   tier: string;
-  availability: string;
-  category: string;
-  description: string;
+  condition: string;
   images: string[];
+  status: string;
+  viewCount: number;
+  inquiryCount: number;
+  availability: string;
+  boxPapers: string;
+  category?: string;
+  description?: string;
+  box?: boolean;
+  papers?: boolean;
 }
 
+interface WatchFormData {
+  brand: string;
+  model: string;
+  name: string;
+  reference: string;
+  price_php: string;
+  condition: string;
+  category: string;
+  tier: string;
+  box: boolean;
+  papers: boolean;
+  description: string;
+}
+
+const emptyFormData: WatchFormData = {
+  brand: 'Rolex',
+  model: '',
+  name: '',
+  reference: '',
+  price_php: '',
+  condition: 'Brand New',
+  category: 'Sport',
+  tier: 'A',
+  box: true,
+  papers: true,
+  description: '',
+};
+
+interface Inquiry {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string;
+  status: string; // NEW, CONTACTED, CLOSED
+  createdAt: string;
+  watch: {
+    id: string;
+    slug: string;
+    brand: string;
+    model: string;
+    reference: string;
+    pricePHP: number;
+    images: string[];
+  } | null;
+}
+
+type ActiveTab = 'watches' | 'inquiries';
+type InquiryFilter = 'ALL' | 'NEW' | 'CONTACTED' | 'CLOSED';
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<ActiveTab>('watches');
+
+  // Watch state
   const [watches, setWatches] = useState<Watch[]>([]);
+  const [watchesLoading, setWatchesLoading] = useState(true);
+  const [watchesError, setWatchesError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBrand, setFilterBrand] = useState('All');
   const [filterTier, setFilterTier] = useState('All');
   const [editingWatch, setEditingWatch] = useState<Watch | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
 
-  // Load watches from inventory
-  useEffect(() => {
-    setWatches(inventoryData as Watch[]);
+  // Add Watch modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addFormData, setAddFormData] = useState<WatchFormData>({ ...emptyFormData });
+  const [addImageFiles, setAddImageFiles] = useState<File[]>([]);
+  const [addImagePreviews, setAddImagePreviews] = useState<string[]>([]);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit Watch modal state
+  const [editFormData, setEditFormData] = useState<WatchFormData>({ ...emptyFormData });
+  const [editImageFiles, setEditImageFiles] = useState<File[]>([]);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editExistingImages, setEditExistingImages] = useState<string[]>([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Inquiry state
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(true);
+  const [inquiriesError, setInquiriesError] = useState<string | null>(null);
+  const [inquiryFilter, setInquiryFilter] = useState<InquiryFilter>('ALL');
+  const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
+
+  // -------------------------------------------------------------------------
+  // Data fetching
+  // -------------------------------------------------------------------------
+  const fetchWatches = useCallback(async () => {
+    setWatchesLoading(true);
+    setWatchesError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/watches?status=ALL`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error(`Failed to fetch watches (${res.status})`);
+      const data = await res.json();
+      // API may return { watches: [...] } or an array directly
+      setWatches(Array.isArray(data) ? data : data.watches ?? []);
+    } catch (err: any) {
+      setWatchesError(err.message ?? 'Failed to load watches');
+    } finally {
+      setWatchesLoading(false);
+    }
   }, []);
 
-  // Calculate stats
-  const totalWatches = watches.length;
-  const totalValue = watches.reduce((sum, w) => sum + w.price_php, 0);
-  const inStockCount = watches.filter(w => w.tier === 'A').length;
+  const fetchInquiries = useCallback(async () => {
+    setInquiriesLoading(true);
+    setInquiriesError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/inquiries`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error(`Failed to fetch inquiries (${res.status})`);
+      const data = await res.json();
+      setInquiries(Array.isArray(data) ? data : data.inquiries ?? []);
+    } catch (err: any) {
+      setInquiriesError(err.message ?? 'Failed to load inquiries');
+    } finally {
+      setInquiriesLoading(false);
+    }
+  }, []);
 
-  // Filter watches
-  const filteredWatches = watches.filter(watch => {
-    const matchesSearch = watch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      watch.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      watch.reference.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    fetchWatches();
+    fetchInquiries();
+  }, [fetchWatches, fetchInquiries]);
 
-    const matchesBrand = filterBrand === 'All' || watch.brand === filterBrand;
-    const matchesTier = filterTier === 'All' || watch.tier === filterTier;
+  // -------------------------------------------------------------------------
+  // Watch status change
+  // -------------------------------------------------------------------------
+  const handleWatchStatusChange = async (slug: string, newStatus: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/watches/${slug}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      setWatches((prev) =>
+        prev.map((w) => (w.slug === slug ? { ...w, status: newStatus } : w))
+      );
+    } catch {
+      alert('Failed to update watch status. Please try again.');
+    }
+  };
 
-    return matchesSearch && matchesBrand && matchesTier;
-  });
+  // -------------------------------------------------------------------------
+  // Inquiry status change
+  // -------------------------------------------------------------------------
+  const handleInquiryStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      setInquiries((prev) =>
+        prev.map((inq) => (inq.id === id ? { ...inq, status: newStatus } : inq))
+      );
+    } catch {
+      alert('Failed to update inquiry status. Please try again.');
+    }
+  };
 
-  const brands = ['All', ...Array.from(new Set(watches.map(w => w.brand)))];
-  const tiers = ['All', 'A', 'B', 'C'];
+  // -------------------------------------------------------------------------
+  // Delete watch
+  // -------------------------------------------------------------------------
+  const handleDelete = async (id: string, slug: string) => {
+    if (!confirm('Are you sure you want to delete this watch?')) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/watches/${slug}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      setWatches((prev) => prev.filter((w) => w.id !== id));
+    } catch {
+      alert('Failed to delete watch. Please try again.');
+    }
+  };
 
+  // -------------------------------------------------------------------------
+  // Populate edit form when editingWatch changes
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (editingWatch) {
+      const boxPapers = editingWatch.boxPapers ?? '';
+      setEditFormData({
+        brand: editingWatch.brand ?? '',
+        model: editingWatch.model ?? '',
+        name: editingWatch.name ?? '',
+        reference: editingWatch.reference ?? '',
+        price_php: String(editingWatch.pricePHP ?? editingWatch.price_php ?? ''),
+        condition: editingWatch.condition ?? 'excellent',
+        category: editingWatch.category ?? 'Sport',
+        tier: editingWatch.tier ?? 'A',
+        box: editingWatch.box ?? (boxPapers === 'Full Set' || boxPapers === 'Box Only'),
+        papers: editingWatch.papers ?? (boxPapers === 'Full Set' || boxPapers === 'Papers Only'),
+        description: editingWatch.description ?? '',
+      });
+      setEditExistingImages(editingWatch.images ?? []);
+      setEditImageFiles([]);
+      setEditImagePreviews([]);
+      setEditError(null);
+    }
+  }, [editingWatch]);
+
+  // -------------------------------------------------------------------------
+  // Image handling helpers
+  // -------------------------------------------------------------------------
+  const handleImageSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFiles: React.Dispatch<React.SetStateAction<File[]>>,
+    setPreviews: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    const files = Array.from(e.target.files ?? []);
+    setFiles((prev) => [...prev, ...files]);
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    setPreviews((prev) => [...prev, ...newPreviews]);
+  };
+
+  const removeNewImage = (
+    index: number,
+    setFiles: React.Dispatch<React.SetStateAction<File[]>>,
+    setPreviews: React.Dispatch<React.SetStateAction<string[]>>,
+    previews: string[],
+  ) => {
+    URL.revokeObjectURL(previews[index]);
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (index: number) => {
+    setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // -------------------------------------------------------------------------
+  // Upload images helper
+  // -------------------------------------------------------------------------
+  const uploadImages = async (files: File[]): Promise<string[]> => {
+    if (files.length === 0) return [];
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/upload-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Image upload failed');
+    const data = await res.json();
+    return data.urls ?? [];
+  };
+
+  // -------------------------------------------------------------------------
+  // Compute boxPapers string from booleans
+  // -------------------------------------------------------------------------
+  const computeBoxPapers = (box: boolean, papers: boolean): string => {
+    if (box && papers) return 'Full Set';
+    if (box) return 'Box Only';
+    if (papers) return 'Papers Only';
+    return 'None';
+  };
+
+  // -------------------------------------------------------------------------
+  // Add Watch submit
+  // -------------------------------------------------------------------------
+  const handleAddWatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddSubmitting(true);
+    setAddError(null);
+
+    try {
+      // Upload images first
+      const uploadedUrls = await uploadImages(addImageFiles);
+
+      const slug = `${addFormData.brand}-${addFormData.model}`.toLowerCase().replace(/\s+/g, '-');
+      const id = `watch-${Date.now()}`;
+
+      const payload = {
+        id,
+        slug,
+        brand: addFormData.brand,
+        model: addFormData.model,
+        reference: addFormData.reference,
+        pricePHP: parseInt(addFormData.price_php) || 0,
+        condition: addFormData.condition,
+        category: addFormData.category,
+        tier: addFormData.tier,
+        boxPapers: computeBoxPapers(addFormData.box, addFormData.papers),
+        description: addFormData.description,
+        images: uploadedUrls,
+        status: 'AVAILABLE',
+        availability: 'in_stock',
+      };
+
+      const res = await fetch(`${API_BASE_URL}/watches`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `Failed to create watch (${res.status})`);
+      }
+
+      // Cleanup previews
+      addImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+      // Reset form and close
+      setAddFormData({ ...emptyFormData });
+      setAddImageFiles([]);
+      setAddImagePreviews([]);
+      setShowAddModal(false);
+
+      // Refresh list
+      await fetchWatches();
+    } catch (err: any) {
+      setAddError(err.message ?? 'Failed to add watch');
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Edit Watch submit
+  // -------------------------------------------------------------------------
+  const handleEditWatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWatch) return;
+    setEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      // Upload any new images
+      const newUploadedUrls = await uploadImages(editImageFiles);
+      const allImages = [...editExistingImages, ...newUploadedUrls];
+
+      const payload: Record<string, any> = {
+        brand: editFormData.brand,
+        model: editFormData.model,
+        reference: editFormData.reference,
+        pricePHP: parseInt(editFormData.price_php) || 0,
+        condition: editFormData.condition,
+        category: editFormData.category,
+        tier: editFormData.tier,
+        boxPapers: computeBoxPapers(editFormData.box, editFormData.papers),
+        description: editFormData.description,
+        images: allImages,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/watches/${editingWatch.slug}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `Failed to update watch (${res.status})`);
+      }
+
+      // Cleanup previews
+      editImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+      // Close modal and refresh
+      setEditingWatch(null);
+      await fetchWatches();
+    } catch (err: any) {
+      setEditError(err.message ?? 'Failed to update watch');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Logout
+  // -------------------------------------------------------------------------
   const handleLogout = async () => {
     await logout();
     navigate('/admin/login');
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this watch?')) {
-      setWatches(prev => prev.filter(w => w.id !== id));
-      // In production: call API to delete
-      alert('Watch deleted successfully! (Changes not persisted in demo)');
-    }
+  // -------------------------------------------------------------------------
+  // Computed values
+  // -------------------------------------------------------------------------
+  const totalWatches = watches.length;
+  const totalValue = watches.reduce((sum, w) => sum + (w.pricePHP ?? w.price_php ?? 0), 0);
+  const newInquiriesCount = inquiries.filter((i) => i.status === 'NEW').length;
+  const mostViewedWatch = watches.length
+    ? watches.reduce((best, w) => ((w.viewCount ?? 0) > (best.viewCount ?? 0) ? w : best), watches[0])
+    : null;
+
+  // Filtered watches
+  const filteredWatches = watches.filter((watch) => {
+    const matchesSearch =
+      watch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      watch.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      watch.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesBrand = filterBrand === 'All' || watch.brand === filterBrand;
+    const matchesTier = filterTier === 'All' || watch.tier === filterTier;
+    return matchesSearch && matchesBrand && matchesTier;
+  });
+
+  const brands = ['All', ...Array.from(new Set(watches.map((w) => w.brand)))];
+  const tiers = ['All', 'A', 'B', 'C'];
+
+  // Filtered inquiries
+  const filteredInquiries = inquiries.filter((inq) =>
+    inquiryFilter === 'ALL' ? true : inq.status === inquiryFilter
+  );
+
+  // -------------------------------------------------------------------------
+  // Badge helpers
+  // -------------------------------------------------------------------------
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      AVAILABLE: 'bg-green-100 text-green-800',
+      RESERVED: 'bg-yellow-100 text-yellow-800',
+      SOLD: 'bg-red-100 text-red-800',
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-800'}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const getInquiryBadge = (status: string) => {
+    const map: Record<string, string> = {
+      NEW: 'bg-blue-100 text-blue-800',
+      CONTACTED: 'bg-yellow-100 text-yellow-800',
+      CLOSED: 'bg-green-100 text-green-800',
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-800'}`}>
+        {status}
+      </span>
+    );
   };
 
   const getTierBadge = (tier: string) => {
-    const badges = {
+    const badges: Record<string, { label: string; color: string }> = {
       A: { label: 'In Stock', color: 'bg-green-100 text-green-800' },
       B: { label: 'Incoming', color: 'bg-blue-100 text-blue-800' },
-      C: { label: 'Sourcing', color: 'bg-yellow-100 text-yellow-800' }
+      C: { label: 'Sourcing', color: 'bg-yellow-100 text-yellow-800' },
     };
-    const badge = badges[tier as keyof typeof badges] || badges.A;
+    const badge = badges[tier] ?? badges.A;
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
         Tier {tier}: {badge.label}
@@ -89,6 +514,9 @@ export function AdminDashboard() {
     );
   };
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header */}
@@ -106,6 +534,7 @@ export function AdminDashboard() {
                 <p className="text-xs text-neutral-500">{user?.email}</p>
               </div>
               <button
+                type="button"
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
               >
@@ -119,7 +548,7 @@ export function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -127,7 +556,7 @@ export function AdminDashboard() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Total Inventory</p>
+                <p className="text-sm text-neutral-600">Total Watches</p>
                 <p className="text-3xl font-bold text-neutral-900 mt-2">{totalWatches}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -144,9 +573,11 @@ export function AdminDashboard() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Total Value</p>
+                <p className="text-sm text-neutral-600">Inventory Value</p>
                 <p className="text-3xl font-bold text-neutral-900 mt-2">
-                  ₱{(totalValue / 1000000).toFixed(1)}M
+                  {totalValue >= 1_000_000
+                    ? `₱${(totalValue / 1_000_000).toFixed(1)}M`
+                    : `₱${totalValue.toLocaleString()}`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -163,181 +594,1098 @@ export function AdminDashboard() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Ready to Ship</p>
-                <p className="text-3xl font-bold text-neutral-900 mt-2">{inStockCount}</p>
+                <p className="text-sm text-neutral-600">New Inquiries</p>
+                <p className="text-3xl font-bold text-neutral-900 mt-2">{newInquiriesCount}</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
+                <MessageSquare className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-600">Most Viewed</p>
+                <p className="text-lg font-bold text-neutral-900 mt-1 truncate max-w-[160px]" title={mostViewedWatch?.name}>
+                  {mostViewedWatch?.name ?? '—'}
+                </p>
+                {mostViewedWatch && (
+                  <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1">
+                    <Eye className="w-3 h-3" />
+                    {mostViewedWatch.viewCount?.toLocaleString() ?? 0} views
+                  </p>
+                )}
+              </div>
+              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-amber-600" />
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Filters and Actions */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="flex-1 flex gap-4 flex-wrap">
-              {/* Search */}
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                <input
-                  type="text"
-                  placeholder="Search watches..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-                />
-              </div>
-
-              {/* Brand Filter */}
-              <select
-                value={filterBrand}
-                onChange={(e) => setFilterBrand(e.target.value)}
-                className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              >
-                {brands.map(brand => (
-                  <option key={brand} value={brand}>{brand}</option>
-                ))}
-              </select>
-
-              {/* Tier Filter */}
-              <select
-                value={filterTier}
-                onChange={(e) => setFilterTier(e.target.value)}
-                className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-              >
-                {tiers.map(tier => (
-                  <option key={tier} value={tier}>{tier === 'All' ? 'All Tiers' : `Tier ${tier}`}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              Add Watch
-            </button>
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 shadow-sm border border-neutral-200 w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab('watches')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'watches'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Watches
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('inquiries')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'inquiries'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Inquiries
+              {newInquiriesCount > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {newInquiriesCount}
+                </span>
+              )}
+            </span>
+          </button>
         </div>
 
-        {/* Watches Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-50 border-b border-neutral-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Watch
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Brand
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Reference
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Tier
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200">
-                {filteredWatches.map((watch, index) => (
-                  <motion.tr
-                    key={watch.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="hover:bg-neutral-50 transition-colors"
+        {/* ================================================================ */}
+        {/* WATCHES TAB                                                      */}
+        {/* ================================================================ */}
+        {activeTab === 'watches' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+            {/* Filters and Actions */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div className="flex-1 flex gap-4 flex-wrap">
+                  {/* Search */}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                    <input
+                      type="text"
+                      placeholder="Search watches..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-11 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Brand Filter */}
+                  <select
+                    value={filterBrand}
+                    onChange={(e) => setFilterBrand(e.target.value)}
+                    aria-label="Filter by brand"
+                    className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={watch.images[0]}
-                          alt={watch.name}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                        <div>
-                          <p className="font-medium text-neutral-900">{watch.name}</p>
-                          <p className="text-sm text-neutral-500">{watch.model}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-900">{watch.brand}</td>
-                    <td className="px-6 py-4 text-sm text-neutral-600">{watch.reference}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-neutral-900">
-                      ₱{watch.price_php.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">{getTierBadge(watch.tier)}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setEditingWatch(watch)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(watch.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    {brands.map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                  </select>
 
-          {filteredWatches.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-              <p className="text-neutral-600">No watches found</p>
-              <p className="text-sm text-neutral-500 mt-1">Try adjusting your filters</p>
+                  {/* Tier Filter */}
+                  <select
+                    value={filterTier}
+                    onChange={(e) => setFilterTier(e.target.value)}
+                    aria-label="Filter by tier"
+                    className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                  >
+                    {tiers.map((tier) => (
+                      <option key={tier} value={tier}>
+                        {tier === 'All' ? 'All Tiers' : `Tier ${tier}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchWatches}
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    title="Refresh"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${watchesLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddFormData({ ...emptyFormData });
+                      setAddImageFiles([]);
+                      setAddImagePreviews([]);
+                      setAddError(null);
+                      setShowAddModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Watch
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Error state */}
+            {watchesError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{watchesError}</p>
+                <button type="button" onClick={fetchWatches} className="ml-auto text-sm font-medium underline">
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {watchesLoading && !watchesError && (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-12 text-center">
+                <RefreshCw className="w-8 h-8 text-neutral-400 mx-auto mb-3 animate-spin" />
+                <p className="text-neutral-600">Loading watches...</p>
+              </div>
+            )}
+
+            {/* Watches Table */}
+            {!watchesLoading && !watchesError && (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-neutral-50 border-b border-neutral-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Watch
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Brand
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Reference
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Tier
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {filteredWatches.map((watch, index) => (
+                        <motion.tr
+                          key={watch.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="hover:bg-neutral-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={watch.images?.[0] ?? ''}
+                                alt={watch.name}
+                                className="w-16 h-16 object-cover rounded-lg bg-neutral-100"
+                              />
+                              <div>
+                                <p className="font-medium text-neutral-900">{watch.name}</p>
+                                <p className="text-sm text-neutral-500">{watch.model}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-neutral-900">{watch.brand}</td>
+                          <td className="px-6 py-4 text-sm text-neutral-600">{watch.reference}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-neutral-900">
+                            ₱{(watch.pricePHP ?? watch.price_php ?? 0).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4">{getTierBadge(watch.tier)}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(watch.status)}
+                              <select
+                                value={watch.status}
+                                onChange={(e) => handleWatchStatusChange(watch.slug, e.target.value)}
+                                aria-label={`Change status for ${watch.name}`}
+                                className="text-xs border border-neutral-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 focus:border-transparent bg-white"
+                              >
+                                <option value="AVAILABLE">AVAILABLE</option>
+                                <option value="RESERVED">RESERVED</option>
+                                <option value="SOLD">SOLD</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingWatch(watch)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(watch.id, watch.slug)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredWatches.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600">No watches found</p>
+                    <p className="text-sm text-neutral-500 mt-1">Try adjusting your filters</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ================================================================ */}
+        {/* INQUIRIES TAB                                                    */}
+        {/* ================================================================ */}
+        {activeTab === 'inquiries' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+            {/* Filters */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="flex gap-2 flex-wrap">
+                  {(['ALL', 'NEW', 'CONTACTED', 'CLOSED'] as InquiryFilter[]).map((status) => (
+                    <button
+                      type="button"
+                      key={status}
+                      onClick={() => setInquiryFilter(status)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        inquiryFilter === status
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {status}
+                      {status === 'NEW' && newInquiriesCount > 0 && (
+                        <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                          {newInquiriesCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchInquiries}
+                  className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                  <span className="text-sm">Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Error state */}
+            {inquiriesError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{inquiriesError}</p>
+                <button type="button" onClick={fetchInquiries} className="ml-auto text-sm font-medium underline">
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {inquiriesLoading && !inquiriesError && (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-12 text-center">
+                <RefreshCw className="w-8 h-8 text-neutral-400 mx-auto mb-3 animate-spin" />
+                <p className="text-neutral-600">Loading inquiries...</p>
+              </div>
+            )}
+
+            {/* Inquiries Table */}
+            {!inquiriesLoading && !inquiriesError && (
+              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-neutral-50 border-b border-neutral-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Phone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Watch
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          Details
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {filteredInquiries.map((inquiry, index) => (
+                        <>
+                          <motion.tr
+                            key={inquiry.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.03 }}
+                            className="hover:bg-neutral-50 transition-colors"
+                          >
+                            <td className="px-6 py-4 text-sm font-medium text-neutral-900">{inquiry.name}</td>
+                            <td className="px-6 py-4 text-sm text-neutral-600">
+                              <a href={`mailto:${inquiry.email}`} className="hover:text-blue-600 flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5" />
+                                {inquiry.email}
+                              </a>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-neutral-600">
+                              {inquiry.phone ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Phone className="w-3.5 h-3.5" />
+                                  {inquiry.phone}
+                                </span>
+                              ) : (
+                                <span className="text-neutral-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-neutral-900">
+                              {inquiry.watch ? (
+                                <span>
+                                  {inquiry.watch.brand} {inquiry.watch.model}
+                                </span>
+                              ) : (
+                                <span className="text-neutral-400">General inquiry</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {getInquiryBadge(inquiry.status)}
+                                <select
+                                  value={inquiry.status}
+                                  onChange={(e) => handleInquiryStatusChange(inquiry.id, e.target.value)}
+                                  aria-label={`Change status for inquiry from ${inquiry.name}`}
+                                  className="text-xs border border-neutral-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 focus:border-transparent bg-white"
+                                >
+                                  <option value="NEW">NEW</option>
+                                  <option value="CONTACTED">CONTACTED</option>
+                                  <option value="CLOSED">CLOSED</option>
+                                </select>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-neutral-600">
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" />
+                                {new Date(inquiry.createdAt).toLocaleDateString('en-PH', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedInquiry(expandedInquiry === inquiry.id ? null : inquiry.id)
+                                }
+                                className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                                title="Toggle details"
+                              >
+                                {expandedInquiry === inquiry.id ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+                          </motion.tr>
+
+                          {/* Expanded detail row */}
+                          <AnimatePresence>
+                            {expandedInquiry === inquiry.id && (
+                              <motion.tr
+                                key={`${inquiry.id}-detail`}
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="bg-neutral-50"
+                              >
+                                <td colSpan={7} className="px-6 py-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Message */}
+                                    <div>
+                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                        Message
+                                      </h4>
+                                      <p className="text-sm text-neutral-700 whitespace-pre-wrap bg-white p-4 rounded-lg border border-neutral-200">
+                                        {inquiry.message || 'No message provided.'}
+                                      </p>
+                                    </div>
+
+                                    {/* Watch details */}
+                                    {inquiry.watch && (
+                                      <div>
+                                        <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                          Watch Details
+                                        </h4>
+                                        <div className="flex gap-4 bg-white p-4 rounded-lg border border-neutral-200">
+                                          {inquiry.watch.images?.[0] && (
+                                            <img
+                                              src={inquiry.watch.images[0]}
+                                              alt={`${inquiry.watch.brand} ${inquiry.watch.model}`}
+                                              className="w-20 h-20 object-cover rounded-lg bg-neutral-100"
+                                            />
+                                          )}
+                                          <div>
+                                            <p className="font-medium text-neutral-900">
+                                              {inquiry.watch.brand} {inquiry.watch.model}
+                                            </p>
+                                            <p className="text-sm text-neutral-500 mt-0.5">
+                                              Ref: {inquiry.watch.reference}
+                                            </p>
+                                            <p className="text-sm font-medium text-neutral-900 mt-1">
+                                              ₱{inquiry.watch.pricePHP?.toLocaleString() ?? '—'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            )}
+                          </AnimatePresence>
+                        </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredInquiries.length === 0 && (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-600">No inquiries found</p>
+                    <p className="text-sm text-neutral-500 mt-1">
+                      {inquiryFilter !== 'ALL'
+                        ? `No ${inquiryFilter.toLowerCase()} inquiries. Try changing the filter.`
+                        : 'No inquiries have been submitted yet.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
       </div>
 
-      {/* Edit Modal - Placeholder */}
-      {editingWatch && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-neutral-900">Edit Watch</h2>
-              <button
-                onClick={() => setEditingWatch(null)}
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-neutral-600 mb-4">
-              Editing: <strong>{editingWatch.name}</strong>
-            </p>
-            <p className="text-sm text-neutral-500">
-              Full edit functionality coming next...
-            </p>
-            <button
-              onClick={() => setEditingWatch(null)}
-              className="mt-6 w-full py-3 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
+      {/* Edit Watch Modal */}
+      <AnimatePresence>
+        {editingWatch && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setEditingWatch(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
-              Close
-            </button>
+              <div className="sticky top-0 bg-white border-b border-neutral-200 px-6 py-4 rounded-t-2xl z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-neutral-900">Edit Watch</h2>
+                  <button
+                    type="button"
+                    onClick={() => setEditingWatch(null)}
+                    className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                    title="Close modal"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleEditWatch} className="p-6 space-y-6">
+                {editError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {editError}
+                  </div>
+                )}
+
+                {/* Row 1: Brand + Model */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="edit-brand" className="block text-sm font-medium text-neutral-700 mb-1">Brand *</label>
+                    <select
+                      id="edit-brand"
+                      value={editFormData.brand}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, brand: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      required
+                    >
+                      <option value="Rolex">Rolex</option>
+                      <option value="Patek Philippe">Patek Philippe</option>
+                      <option value="Audemars Piguet">Audemars Piguet</option>
+                      <option value="Cartier">Cartier</option>
+                      <option value="Omega">Omega</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="edit-model" className="block text-sm font-medium text-neutral-700 mb-1">Model *</label>
+                    <input
+                      id="edit-model"
+                      type="text"
+                      value={editFormData.model}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, model: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. Submariner"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Name + Reference */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="edit-name" className="block text-sm font-medium text-neutral-700 mb-1">Name</label>
+                    <input
+                      id="edit-name"
+                      type="text"
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="Display name"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-reference" className="block text-sm font-medium text-neutral-700 mb-1">Reference</label>
+                    <input
+                      id="edit-reference"
+                      type="text"
+                      value={editFormData.reference}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, reference: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. 116610LN"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: Price + Condition */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="edit-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (PHP) *</label>
+                    <input
+                      id="edit-price"
+                      type="number"
+                      value={editFormData.price_php}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, price_php: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. 550000"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-condition" className="block text-sm font-medium text-neutral-700 mb-1">Condition</label>
+                    <select
+                      id="edit-condition"
+                      value={editFormData.condition}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, condition: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="Brand New">Brand New</option>
+                      <option value="Unworn">Unworn</option>
+                      <option value="excellent">Excellent</option>
+                      <option value="good">Good</option>
+                      <option value="fair">Fair</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 4: Category + Tier */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="edit-category" className="block text-sm font-medium text-neutral-700 mb-1">Category</label>
+                    <select
+                      id="edit-category"
+                      value={editFormData.category}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="Sport">Sport</option>
+                      <option value="Luxury">Luxury</option>
+                      <option value="Dress">Dress</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="edit-tier" className="block text-sm font-medium text-neutral-700 mb-1">Tier</label>
+                    <select
+                      id="edit-tier"
+                      value={editFormData.tier}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, tier: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="A">Tier A - In Stock</option>
+                      <option value="B">Tier B - Incoming</option>
+                      <option value="C">Tier C - Sourcing</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 5: Box + Papers checkboxes */}
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.box}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, box: e.target.checked }))}
+                      className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-sm font-medium text-neutral-700">Box included</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.papers}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, papers: e.target.checked }))}
+                      className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-sm font-medium text-neutral-700">Papers included</span>
+                  </label>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-vertical"
+                    placeholder="Watch description..."
+                  />
+                </div>
+
+                {/* Images */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">Images</label>
+
+                  {/* Existing images */}
+                  {editExistingImages.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-neutral-500 mb-2">Current images (click X to remove)</p>
+                      <div className="flex flex-wrap gap-3">
+                        {editExistingImages.map((url, idx) => (
+                          <div key={url} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Watch image ${idx + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-neutral-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeExistingImage(idx)}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove image"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* New image previews */}
+                  {editImagePreviews.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-neutral-500 mb-2">New images to upload</p>
+                      <div className="flex flex-wrap gap-3">
+                        {editImagePreviews.map((url, idx) => (
+                          <div key={url} className="relative group">
+                            <img
+                              src={url}
+                              alt={`New image ${idx + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-blue-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeNewImage(idx, setEditImageFiles, setEditImagePreviews, editImagePreviews)}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove image"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    aria-label="Upload watch images"
+                    onChange={(e) => handleImageSelect(e, setEditImageFiles, setEditImagePreviews)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => editFileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 border border-dashed border-neutral-300 rounded-lg text-sm text-neutral-600 hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Add images
+                  </button>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 pt-2 border-t border-neutral-200">
+                  <button
+                    type="submit"
+                    disabled={editSubmitting}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingWatch(null)}
+                    disabled={editSubmitting}
+                    className="px-6 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* Add Watch Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-white border-b border-neutral-200 px-6 py-4 rounded-t-2xl z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-neutral-900">Add New Watch</h2>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                    title="Close modal"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleAddWatch} className="p-6 space-y-6">
+                {addError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {addError}
+                  </div>
+                )}
+
+                {/* Row 1: Brand + Model */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-brand" className="block text-sm font-medium text-neutral-700 mb-1">Brand *</label>
+                    <select
+                      id="add-brand"
+                      value={addFormData.brand}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, brand: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      required
+                    >
+                      <option value="Rolex">Rolex</option>
+                      <option value="Patek Philippe">Patek Philippe</option>
+                      <option value="Audemars Piguet">Audemars Piguet</option>
+                      <option value="Cartier">Cartier</option>
+                      <option value="Omega">Omega</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="add-model" className="block text-sm font-medium text-neutral-700 mb-1">Model *</label>
+                    <input
+                      id="add-model"
+                      type="text"
+                      value={addFormData.model}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, model: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. Submariner"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Name + Reference */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-name" className="block text-sm font-medium text-neutral-700 mb-1">Name</label>
+                    <input
+                      id="add-name"
+                      type="text"
+                      value={addFormData.name}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="Display name"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-reference" className="block text-sm font-medium text-neutral-700 mb-1">Reference</label>
+                    <input
+                      id="add-reference"
+                      type="text"
+                      value={addFormData.reference}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, reference: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. 116610LN"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: Price + Condition */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (PHP) *</label>
+                    <input
+                      id="add-price"
+                      type="number"
+                      value={addFormData.price_php}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, price_php: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      placeholder="e.g. 550000"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-condition" className="block text-sm font-medium text-neutral-700 mb-1">Condition</label>
+                    <select
+                      id="add-condition"
+                      value={addFormData.condition}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, condition: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="Brand New">Brand New</option>
+                      <option value="Unworn">Unworn</option>
+                      <option value="excellent">Excellent</option>
+                      <option value="good">Good</option>
+                      <option value="fair">Fair</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 4: Category + Tier */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="add-category" className="block text-sm font-medium text-neutral-700 mb-1">Category</label>
+                    <select
+                      id="add-category"
+                      value={addFormData.category}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="Sport">Sport</option>
+                      <option value="Luxury">Luxury</option>
+                      <option value="Dress">Dress</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="add-tier" className="block text-sm font-medium text-neutral-700 mb-1">Tier</label>
+                    <select
+                      id="add-tier"
+                      value={addFormData.tier}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, tier: e.target.value }))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    >
+                      <option value="A">Tier A - In Stock</option>
+                      <option value="B">Tier B - Incoming</option>
+                      <option value="C">Tier C - Sourcing</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 5: Box + Papers checkboxes */}
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addFormData.box}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, box: e.target.checked }))}
+                      className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-sm font-medium text-neutral-700">Box included</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addFormData.papers}
+                      onChange={(e) => setAddFormData((prev) => ({ ...prev, papers: e.target.checked }))}
+                      className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-sm font-medium text-neutral-700">Papers included</span>
+                  </label>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label htmlFor="add-description" className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+                  <textarea
+                    id="add-description"
+                    value={addFormData.description}
+                    onChange={(e) => setAddFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent resize-vertical"
+                    placeholder="Watch description..."
+                  />
+                </div>
+
+                {/* Images */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">Images</label>
+
+                  {/* Image previews */}
+                  {addImagePreviews.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex flex-wrap gap-3">
+                        {addImagePreviews.map((url, idx) => (
+                          <div key={url} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Upload preview ${idx + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-neutral-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeNewImage(idx, setAddImageFiles, setAddImagePreviews, addImagePreviews)}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remove image"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <input
+                    ref={addFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    aria-label="Upload watch images"
+                    onChange={(e) => handleImageSelect(e, setAddImageFiles, setAddImagePreviews)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addFileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 border border-dashed border-neutral-300 rounded-lg text-sm text-neutral-600 hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {addImagePreviews.length > 0 ? 'Add more images' : 'Upload images'}
+                  </button>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 pt-2 border-t border-neutral-200">
+                  <button
+                    type="submit"
+                    disabled={addSubmitting}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Adding Watch...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Add Watch
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    disabled={addSubmitting}
+                    className="px-6 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

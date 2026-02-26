@@ -10,9 +10,10 @@ interface WhatsAppButtonProps {
 }
 
 export function WhatsAppButton({ watchName, price, reference, position = 'fixed' }: WhatsAppButtonProps) {
-  const link = watchName && price 
+  const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '639171234567';
+  const link = watchName && price
     ? getWhatsAppLink(watchName, price, reference)
-    : 'https://wa.me/639123456789'; // Default contact
+    : `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hi Sherard! I\'m browsing Manila Watch Atelier and would like to inquire about your collection.')}`;
 
   const buttonClass = position === 'fixed'
     ? 'fixed bottom-6 right-6 z-40'

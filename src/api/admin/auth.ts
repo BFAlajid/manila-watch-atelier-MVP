@@ -1,75 +1,69 @@
-// Admin Authentication API
-// This is a client-side implementation. In production, move to server-side (Express/Next.js API routes)
+// Admin Authentication API — calls Vercel serverless /api/auth
 
-import { validateCredentials, createSession, getSessionUser, deleteSession } from '../../lib/auth';
+const API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001/api';
 
-export async function handleLogin(email: string, password: string) {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  const user = validateCredentials(email, password);
-
-  if (!user) {
-    return {
-      success: false,
-      error: 'Invalid email or password'
-    };
-  }
-
-  const token = createSession(user);
-
-  return {
-    success: true,
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    }
-  };
-}
-
-export async function handleVerify(token: string) {
-  const user = getSessionUser(token);
-
-  if (!user) {
-    return {
-      success: false,
-      error: 'Invalid or expired session'
-    };
-  }
-
-  return {
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    }
-  };
-}
-
-export async function handleLogout(token: string) {
-  deleteSession(token);
-
-  return {
-    success: true
-  };
-}
-
-// Mock API endpoints for client-side usage
 export const authAPI = {
   login: async (email: string, password: string) => {
-    return handleLogin(email, password);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || 'Invalid credentials' };
+      }
+
+      // Store expiry alongside token
+      localStorage.setItem('admin_token_expires', String(data.expiresAt));
+      localStorage.setItem('admin_username', data.username || email);
+
+      return {
+        success: true,
+        token: data.token,
+        user: {
+          id: 'admin-001',
+          email: email,
+          name: data.username || 'Admin',
+          role: 'admin' as const,
+        },
+      };
+    } catch (error) {
+      return { success: false, error: 'Network error' };
+    }
   },
 
   verify: async (token: string) => {
-    return handleVerify(token);
+    try {
+      const expiresAt = localStorage.getItem('admin_token_expires');
+      if (!expiresAt || Date.now() > parseInt(expiresAt)) {
+        return { success: false, error: 'Session expired' };
+      }
+
+      const username = localStorage.getItem('admin_username');
+      return {
+        success: true,
+        user: {
+          id: 'admin-001',
+          email: username || 'admin',
+          name: username || 'Admin',
+          role: 'admin' as const,
+        },
+      };
+    } catch (error) {
+      return { success: false, error: 'Invalid session' };
+    }
   },
 
-  logout: async (token: string) => {
-    return handleLogout(token);
-  }
+  logout: async (_token: string) => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_token_expires');
+    localStorage.removeItem('admin_username');
+    return { success: true };
+  },
 };

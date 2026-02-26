@@ -14,12 +14,19 @@ export default function InventoryPage() {
       <Header />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          <div className="mb-12">
-            <h1 className="text-5xl text-white mb-4">Our Collection</h1>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 text-center"
+          >
+            <p className="text-sm tracking-widest text-[#D4AF37] uppercase mb-3">Manila Watch Atelier</p>
+            <h1 className="text-5xl text-white mb-4 font-serif">Our Collection</h1>
+            <div className="mx-auto w-24 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mb-4" />
             <p className="text-xl text-neutral-400">
               Discover our curated selection of ultra-luxury timepieces
             </p>
-          </div>
+          </motion.div>
           <ProductGrid />
         </div>
       </div>

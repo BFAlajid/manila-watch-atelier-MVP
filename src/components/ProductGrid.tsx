@@ -27,6 +27,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [priceRange, setPriceRange] = useState<string>('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { formatPrice } = useWatch();
 
   // Load watches from API with real-time updates
@@ -35,7 +36,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
 
     const loadWatches = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/inventory`);
+        const response = await fetch(`${API_BASE_URL}/watches`);
         if (!response.ok) {
           throw new Error('Failed to load inventory');
         }
@@ -67,14 +68,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
       }
     };
 
-    // Initial load
     loadWatches();
-
-    // Poll for updates every 5 seconds (real-time inventory updates)
-    const interval = setInterval(loadWatches, 5000);
-
-    // Cleanup on unmount
-    return () => clearInterval(interval);
   }, []);
 
   // Save filter state
@@ -101,7 +95,9 @@ export function ProductGrid({ limit }: ProductGridProps) {
     const brandMatch = selectedBrand === 'All' || watch.brand === selectedBrand;
     const priceRangeObj = priceRanges.find(pr => pr.label === priceRange) || priceRanges[0];
     const priceMatch = watch.price_php >= priceRangeObj.min && watch.price_php <= priceRangeObj.max;
-    return categoryMatch && brandMatch && priceMatch;
+    const q = searchQuery.toLowerCase();
+    const searchMatch = !q || watch.brand.toLowerCase().includes(q) || watch.name.toLowerCase().includes(q) || watch.model?.toLowerCase().includes(q) || watch.reference?.toLowerCase().includes(q);
+    return categoryMatch && brandMatch && priceMatch && searchMatch;
   });
 
   const displayWatches = limit ? filteredWatches.slice(0, limit) : filteredWatches;
@@ -118,7 +114,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
         <div>
           {!limit && (
             <>
-              <h3 className="text-3xl mb-2 text-white">Curated Collection</h3>
+              <h3 className="text-3xl mb-2 text-white font-serif">Curated Collection</h3>
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -131,15 +127,27 @@ export function ProductGrid({ limit }: ProductGridProps) {
           )}
         </div>
         {!limit && (
-          <motion.button
-            onClick={() => setShowFilters(!showFilters)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg transition-colors"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-neutral-400" />
-            <span className="text-neutral-300">Filters</span>
-          </motion.button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <input
+                type="text"
+                placeholder="Search watches..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 w-56 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] rounded-lg text-white placeholder-neutral-500 focus:outline-none transition-all text-sm"
+              />
+            </div>
+            <motion.button
+              onClick={() => setShowFilters(!showFilters)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-neutral-400" />
+              <span className="text-neutral-300">Filters</span>
+            </motion.button>
+          </div>
         )}
       </motion.div>
 
@@ -159,6 +167,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
+                  aria-label="Filter by category"
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
                 >
                   {categories.map(cat => (
@@ -173,6 +182,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
                 <select
                   value={selectedBrand}
                   onChange={(e) => setSelectedBrand(e.target.value)}
+                  aria-label="Filter by brand"
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
                 >
                   {brands.map(brand => (
@@ -187,6 +197,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
                 <select
                   value={priceRange}
                   onChange={(e) => setPriceRange(e.target.value)}
+                  aria-label="Filter by price range"
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
                 >
                   {priceRanges.map(range => (
@@ -208,7 +219,8 @@ export function ProductGrid({ limit }: ProductGridProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ delay: index * 0.1 }}
-            className="group bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 hover:border-[#D4AF37] transition-all"
+            whileHover={{ y: -4 }}
+            className="group bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 hover:border-[#D4AF37] hover:shadow-[0_8px_30px_rgba(212,175,55,0.15)] transition-all"
           >
             <Link to={`/watch/${watch.slug}`} className="block relative">
               <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -216,20 +228,28 @@ export function ProductGrid({ limit }: ProductGridProps) {
                 <ShareButton slug={watch.slug} watchName={watch.name} />
               </div>
               <div className="relative overflow-hidden bg-black">
-                <img
-                  src={watch.image}
-                  alt={watch.name}
-                  className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-500"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+                {watch.image ? (
+                  <img
+                    src={watch.image}
+                    alt={watch.name}
+                    loading="lazy"
+                    className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`w-full h-80 flex items-center justify-center bg-neutral-800 ${watch.image ? 'hidden' : ''}`}>
+                  <svg className="w-16 h-16 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" strokeWidth="1.5" /><path strokeWidth="1.5" d="M12 7v5l3 3" /></svg>
+                </div>
                 <div className="absolute bottom-4 left-4">
                   <LowStockBadge tier={watch.tier} availability={watch.availability} />
                 </div>
               </div>
             </Link>
 
+            <div className="h-px bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-transparent" />
             <div className="p-6">
               <Link to={`/watch/${watch.slug}`}>
                 <p className="text-sm text-[#D4AF37] mb-2">{watch.brand}</p>
