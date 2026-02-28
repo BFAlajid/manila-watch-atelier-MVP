@@ -1,8 +1,8 @@
 // PUT /api/inquiries/:id — Admin: update inquiry status
-import { prisma } from '../_lib/prisma.js';
+import { getInquiries, saveInquiries } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -28,19 +28,23 @@ export default async function handler(req: any, res: any) {
     const { status } = req.body;
 
     if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
+      return res
+        .status(400)
+        .json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
     }
 
-    const inquiry = await prisma.inquiry.update({
-      where: { id: id as string },
-      data: { status },
-    });
-
-    return res.status(200).json({ success: true, inquiry });
-  } catch (error: any) {
-    if (error?.code === 'P2025') {
+    const inquiries = getInquiries();
+    const index = inquiries.findIndex((i: any) => i.id === id);
+    if (index === -1) {
       return res.status(404).json({ error: 'Inquiry not found' });
     }
+
+    inquiries[index] = { ...inquiries[index], status };
+
+    try { saveInquiries(inquiries); } catch { /* read-only on Vercel */ }
+
+    return res.status(200).json({ success: true, inquiry: inquiries[index] });
+  } catch (error) {
     console.error('Error updating inquiry:', error);
     return res.status(500).json({ error: 'Failed to update inquiry' });
   }

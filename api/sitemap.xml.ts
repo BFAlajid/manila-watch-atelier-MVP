@@ -1,23 +1,18 @@
-// GET /api/sitemap.xml — Generate XML sitemap from database
-import { prisma } from './_lib/prisma.js';
+// GET /api/sitemap.xml — Generate XML sitemap from JSON data
+import { getWatches } from './_lib/data.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   if (req.method !== 'GET') {
     return res.status(405).end();
   }
 
   try {
-    const watches = await prisma.watch.findMany({
-      where: { status: 'AVAILABLE' },
-      select: { slug: true, updatedAt: true, brand: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-
+    const watches = getWatches().filter((w) => w.status === 'AVAILABLE');
     const baseUrl = process.env.APP_URL || 'https://manilawatch.com';
 
     // Collect unique brands for brand pages
     const brands = [...new Set(watches.map((w) => w.brand))] as string[];
-    const brandSlugs = brands.map((b: string) =>
+    const brandSlugs = brands.map((b) =>
       b.toLowerCase().replace(/\s+/g, '-')
     );
 
@@ -37,7 +32,7 @@ export default async function handler(req: any, res: any) {
         loc: `/watch/${w.slug}`,
         priority: '0.8',
         changefreq: 'weekly' as string,
-        lastmod: w.updatedAt.toISOString().split('T')[0],
+        lastmod: w.updated_at ? w.updated_at.split('T')[0] : undefined,
       })),
     ];
 
@@ -49,7 +44,7 @@ ${urls
     <loc>${baseUrl}${u.loc}</loc>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>${
-      'lastmod' in u ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''
+      'lastmod' in u && u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''
     }
   </url>`
   )

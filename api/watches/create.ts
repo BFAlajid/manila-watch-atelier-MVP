@@ -1,8 +1,8 @@
 // POST /api/watches/create — Admin: create new watch
-import { prisma } from '../_lib/prisma.js';
+import { getWatches, saveWatches } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -22,46 +22,62 @@ export default async function handler(req: any, res: any) {
     const data = req.body;
 
     if (!data.slug || !data.brand || !data.model || !data.pricePHP) {
-      return res.status(400).json({ error: 'Missing required fields: slug, brand, model, pricePHP' });
+      return res
+        .status(400)
+        .json({ error: 'Missing required fields: slug, brand, model, pricePHP' });
     }
 
-    const existing = await prisma.watch.findUnique({ where: { slug: data.slug } });
+    const watches = getWatches();
+    const existing = watches.find((w) => w.slug === data.slug);
     if (existing) {
-      return res.status(409).json({ error: 'A watch with this slug already exists' });
+      return res
+        .status(409)
+        .json({ error: 'A watch with this slug already exists' });
     }
 
-    const watch = await prisma.watch.create({
-      data: {
-        slug: data.slug,
-        brand: data.brand,
-        model: data.model,
-        reference: data.reference || '',
-        nickname: data.nickname || null,
-        year: data.year ? parseInt(data.year) : null,
-        caseDiameter: data.caseDiameter ? parseFloat(data.caseDiameter) : null,
-        caseMaterial: data.caseMaterial || null,
-        dialColor: data.dialColor || null,
-        movement: data.movement || null,
-        caliber: data.caliber || null,
-        braceletType: data.braceletType || null,
-        complications: data.complications || [],
-        condition: data.condition || 'excellent',
-        boxPapers: data.boxPapers || 'Full Set',
-        tier: data.tier || 'A',
-        pricePHP: parseInt(data.pricePHP),
-        retailPricePHP: data.retailPricePHP ? parseInt(data.retailPricePHP) : null,
-        marketTrend: data.marketTrend || null,
-        annualAppreciation: data.annualAppreciation ? parseFloat(data.annualAppreciation) : null,
-        images: data.images || [],
-        video: data.video || null,
-        category: data.category || 'Sport',
-        availability: data.availability || 'in_stock',
-        description: data.description || '',
-        specifications: data.specifications || {},
-        featured: data.featured || false,
-        status: data.status || 'AVAILABLE',
-      },
-    });
+    const watch = {
+      id: data.id || `watch-${Date.now()}`,
+      slug: data.slug,
+      brand: data.brand,
+      model: data.model,
+      reference: data.reference || '',
+      name: data.name || `${data.model}${data.nickname ? ` "${data.nickname}"` : ''}`,
+      nickname: data.nickname || null,
+      year: data.year ? parseInt(data.year) : null,
+      price_php: parseInt(data.pricePHP),
+      pricePHP: parseInt(data.pricePHP),
+      retailPricePHP: data.retailPricePHP ? parseInt(data.retailPricePHP) : null,
+      condition: data.condition || 'excellent',
+      box: data.box ?? true,
+      papers: data.papers ?? true,
+      boxPapers: data.boxPapers || 'Full Set',
+      tier: data.tier || 'A',
+      availability: data.availability || 'in_stock',
+      category: data.category || 'Sport',
+      description: data.description || '',
+      images: data.images || [],
+      video: data.video || null,
+      specifications: data.specifications || {},
+      status: data.status || 'AVAILABLE',
+      featured: data.featured || false,
+      viewCount: 0,
+      inquiryCount: 0,
+      marketTrend: data.marketTrend || 'STABLE',
+      annualAppreciation: data.annualAppreciation ? parseFloat(data.annualAppreciation) : 0,
+      caseDiameter: data.caseDiameter ? parseFloat(data.caseDiameter) : null,
+      caseMaterial: data.caseMaterial || null,
+      dialColor: data.dialColor || null,
+      movement: data.movement || null,
+      caliber: data.caliber || null,
+      braceletType: data.braceletType || null,
+      complications: data.complications || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    watches.push(watch);
+
+    try { saveWatches(watches); } catch { /* read-only on Vercel */ }
 
     return res.status(201).json({ success: true, watch });
   } catch (error) {

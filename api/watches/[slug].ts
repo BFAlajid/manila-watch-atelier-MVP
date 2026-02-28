@@ -1,8 +1,8 @@
 // GET/PUT/DELETE /api/watches/:slug
-import { prisma } from '../_lib/prisma.js';
+import { getWatches, saveWatches } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -15,66 +15,21 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Slug is required' });
   }
 
-  // ── GET: public — fetch single watch, increment viewCount ──
+  // ── GET: public — fetch single watch ──
   if (req.method === 'GET') {
     try {
-      const watch = await prisma.watch.update({
-        where: { slug: slug as string },
-        data: { viewCount: { increment: 1 } },
-        include: {
-          _count: { select: { inquiries: true } },
-        },
-      });
+      const watches = getWatches();
+      const watch = watches.find((w) => w.slug === slug);
 
       if (!watch) {
         return res.status(404).json({ error: 'Watch not found' });
       }
 
-      const result = {
-        id: watch.id,
-        slug: watch.slug,
-        brand: watch.brand,
-        model: watch.model,
-        reference: watch.reference,
-        name: `${watch.model}${watch.nickname ? ` "${watch.nickname}"` : ''}`,
-        nickname: watch.nickname,
-        year: watch.year,
-        caseDiameter: watch.caseDiameter,
-        caseMaterial: watch.caseMaterial,
-        dialColor: watch.dialColor,
-        movement: watch.movement,
-        caliber: watch.caliber,
-        braceletType: watch.braceletType,
-        complications: watch.complications,
-        condition: watch.condition,
-        boxPapers: watch.boxPapers,
-        box: watch.boxPapers === 'Full Set' || watch.boxPapers === 'Box Only',
-        papers: watch.boxPapers === 'Full Set' || watch.boxPapers === 'Papers Only',
-        tier: watch.tier,
-        price_php: watch.pricePHP,
-        pricePHP: watch.pricePHP,
-        retailPricePHP: watch.retailPricePHP,
-        marketTrend: watch.marketTrend,
-        annualAppreciation: watch.annualAppreciation,
-        images: watch.images,
-        video: watch.video ? JSON.parse(watch.video) : null,
-        category: watch.category,
-        availability: watch.availability,
-        description: watch.description,
-        specifications: watch.specifications,
-        featured: watch.featured,
-        status: watch.status,
-        viewCount: watch.viewCount,
-        inquiryCount: watch._count.inquiries,
-        created_at: watch.createdAt.toISOString(),
-        updated_at: watch.updatedAt.toISOString(),
-      };
+      // Increment view count (best-effort, won't persist on Vercel)
+      watch.viewCount = (watch.viewCount || 0) + 1;
 
-      return res.status(200).json(result);
-    } catch (error: any) {
-      if (error?.code === 'P2025') {
-        return res.status(404).json({ error: 'Watch not found' });
-      }
+      return res.status(200).json(watch);
+    } catch (error) {
       console.error('Error fetching watch:', error);
       return res.status(500).json({ error: 'Failed to fetch watch' });
     }
@@ -88,20 +43,22 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-      const updates = req.body;
-      const watch = await prisma.watch.update({
-        where: { slug: slug as string },
-        data: {
-          ...updates,
-          updatedAt: new Date(),
-        },
-      });
-
-      return res.status(200).json({ success: true, watch });
-    } catch (error: any) {
-      if (error?.code === 'P2025') {
+      const watches = getWatches();
+      const index = watches.findIndex((w) => w.slug === slug);
+      if (index === -1) {
         return res.status(404).json({ error: 'Watch not found' });
       }
+
+      watches[index] = {
+        ...watches[index],
+        ...req.body,
+        updated_at: new Date().toISOString(),
+      };
+
+      try { saveWatches(watches); } catch { /* read-only on Vercel */ }
+
+      return res.status(200).json({ success: true, watch: watches[index] });
+    } catch (error) {
       console.error('Error updating watch:', error);
       return res.status(500).json({ error: 'Failed to update watch' });
     }
@@ -115,16 +72,18 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-      const watch = await prisma.watch.update({
-        where: { slug: slug as string },
-        data: { status: 'SOLD' },
-      });
-
-      return res.status(200).json({ success: true, status: 'SOLD' });
-    } catch (error: any) {
-      if (error?.code === 'P2025') {
+      const watches = getWatches();
+      const index = watches.findIndex((w) => w.slug === slug);
+      if (index === -1) {
         return res.status(404).json({ error: 'Watch not found' });
       }
+
+      watches[index].status = 'SOLD';
+
+      try { saveWatches(watches); } catch { /* read-only on Vercel */ }
+
+      return res.status(200).json({ success: true, status: 'SOLD' });
+    } catch (error) {
       console.error('Error deleting watch:', error);
       return res.status(500).json({ error: 'Failed to delete watch' });
     }

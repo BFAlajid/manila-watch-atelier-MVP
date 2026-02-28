@@ -1,9 +1,10 @@
 // POST /api/inquiries — public: submit inquiry
 // GET  /api/inquiries — admin: list all inquiries
-import { prisma } from './_lib/prisma.js';
+import crypto from 'crypto';
+import { getWatches, getInquiries, saveInquiries } from './_lib/data.js';
 import { verifyAuth } from './_lib/auth.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -15,66 +16,49 @@ export default async function handler(req: any, res: any) {
     try {
       const { name, email, phone, message, watchId } = req.body;
 
-      // Validate required fields
       if (!name || !email) {
         return res.status(400).json({ error: 'Name and email are required' });
       }
 
-      // Basic email validation
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ error: 'Invalid email address' });
       }
 
-      // Rate limit: 3 inquiries per email per hour
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const recentCount = await prisma.inquiry.count({
-        where: {
-          email,
-          createdAt: { gte: oneHourAgo },
-        },
-      });
-
-      if (recentCount >= 3) {
-        return res.status(429).json({ error: 'Too many inquiries. Please try again later.' });
-      }
-
-      // If watchId provided, verify watch exists
+      // Attach watch info if watchId provided
       let watch = null;
       if (watchId) {
-        watch = await prisma.watch.findUnique({
-          where: { id: watchId },
-          select: { id: true, brand: true, model: true, reference: true, pricePHP: true },
-        });
+        const watches = getWatches();
+        const w = watches.find((w) => w.id === watchId);
+        if (w) {
+          watch = {
+            id: w.id,
+            slug: w.slug,
+            brand: w.brand,
+            model: w.model,
+            reference: w.reference,
+            pricePHP: w.pricePHP,
+            images: w.images,
+          };
+        }
       }
 
-      const inquiry = await prisma.inquiry.create({
-        data: {
-          name,
-          email,
-          phone: phone || null,
-          message: message || '',
-          watchId: watch?.id || null,
-          source: 'FORM',
-          status: 'NEW',
-        },
-      });
+      const inquiry = {
+        id: crypto.randomUUID(),
+        name,
+        email,
+        phone: phone || null,
+        message: message || '',
+        watchId: watchId || null,
+        watch,
+        source: 'FORM',
+        status: 'NEW',
+        createdAt: new Date().toISOString(),
+      };
 
-      // Send email notification (async, don't block response)
-      try {
-        const emailModule = await import('../lib/email.js');
-        await emailModule.sendInquiryNotificationEmail({
-          customerName: name,
-          customerEmail: email,
-          customerPhone: phone,
-          message: message || '',
-          watchBrand: watch?.brand,
-          watchModel: watch?.model,
-          watchReference: watch?.reference,
-          watchPrice: watch?.pricePHP,
-        });
-      } catch (emailError) {
-        console.error('Email notification failed (non-blocking):', emailError);
-      }
+      const inquiries = getInquiries();
+      inquiries.push(inquiry);
+
+      try { saveInquiries(inquiries); } catch { /* read-only on Vercel */ }
 
       return res.status(201).json({ success: true, id: inquiry.id });
     } catch (error) {
@@ -91,33 +75,25 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
+      const inquiries = getInquiries();
       const { status, limit } = req.query;
 
-      const where: any = {};
+      let filtered = inquiries;
       if (status && status !== 'ALL') {
-        where.status = status;
+        filtered = filtered.filter((i: any) => i.status === status);
       }
 
-      const inquiries = await prisma.inquiry.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit ? parseInt(limit) : 100,
-        include: {
-          watch: {
-            select: {
-              id: true,
-              slug: true,
-              brand: true,
-              model: true,
-              reference: true,
-              pricePHP: true,
-              images: true,
-            },
-          },
-        },
-      });
+      // Sort newest first
+      filtered.sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
-      return res.status(200).json(inquiries);
+      if (limit) {
+        filtered = filtered.slice(0, parseInt(limit));
+      }
+
+      return res.status(200).json(filtered);
     } catch (error) {
       console.error('Error fetching inquiries:', error);
       return res.status(500).json({ error: 'Failed to fetch inquiries' });

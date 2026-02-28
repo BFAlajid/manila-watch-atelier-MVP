@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@prisma/client": "^5.22.0",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-aspect-ratio": "^1.1.2",
@@ -43,7 +42,6 @@
     "lucide-react": "^0.487.0",
     "motion": "*",
     "multer": "^2.0.2",
-    "prisma": "^5.22.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -78,10 +76,7 @@
     "dev": "concurrently -n frontend,api -c cyan,yellow \"vite\" \"node dev-server.js\"",
     "dev:frontend": "vite",
     "dev:api": "node dev-server.js",
-    "build": "npx prisma generate && vite build",
-    "db:migrate": "npx prisma migrate dev",
-    "db:seed": "npx tsx scripts/seed-watches.ts",
-    "db:migrate-json": "npx tsx scripts/migrate-json-to-db.ts",
+    "build": "vite build",
     "test": "vitest",
     "test:e2e": "playwright test"
   }

@@ -1,7 +1,7 @@
 // GET /api/watches — List all watches with filtering
-import { prisma } from './_lib/prisma.js';
+import { getWatches } from './_lib/data.js';
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -13,12 +13,13 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    let watches = getWatches();
+
     const {
       brand,
       minPrice,
       maxPrice,
       condition,
-      caseMaterial,
       sort,
       search,
       status,
@@ -27,110 +28,62 @@ export default async function handler(req: any, res: any) {
       featured,
     } = req.query;
 
-    // Build where clause
-    const where: any = {
-      status: status || 'AVAILABLE',
-    };
+    // Filter by status (default: AVAILABLE)
+    const targetStatus = status || 'AVAILABLE';
+    if (targetStatus !== 'ALL') {
+      watches = watches.filter((w) => w.status === targetStatus);
+    }
 
     if (brand && brand !== 'All') {
-      where.brand = brand;
+      watches = watches.filter(
+        (w) => w.brand.toLowerCase() === brand.toString().toLowerCase()
+      );
     }
 
     if (category && category !== 'All') {
-      where.category = category;
+      watches = watches.filter((w) => w.category === category);
     }
 
     if (tier && tier !== 'All') {
-      where.tier = tier;
+      watches = watches.filter((w) => w.tier === tier);
     }
 
     if (condition) {
-      where.condition = condition;
+      watches = watches.filter((w) => w.condition === condition);
     }
 
-    if (caseMaterial) {
-      where.caseMaterial = { contains: caseMaterial, mode: 'insensitive' };
+    if (minPrice) {
+      watches = watches.filter((w) => w.price_php >= parseInt(minPrice));
     }
-
-    if (minPrice || maxPrice) {
-      where.pricePHP = {};
-      if (minPrice) where.pricePHP.gte = parseInt(minPrice);
-      if (maxPrice) where.pricePHP.lte = parseInt(maxPrice);
+    if (maxPrice) {
+      watches = watches.filter((w) => w.price_php <= parseInt(maxPrice));
     }
 
     if (search) {
-      where.OR = [
-        { brand: { contains: search, mode: 'insensitive' } },
-        { model: { contains: search, mode: 'insensitive' } },
-        { reference: { contains: search, mode: 'insensitive' } },
-        { nickname: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      const q = search.toString().toLowerCase();
+      watches = watches.filter(
+        (w) =>
+          w.brand.toLowerCase().includes(q) ||
+          w.model.toLowerCase().includes(q) ||
+          w.name.toLowerCase().includes(q) ||
+          w.reference.toLowerCase().includes(q) ||
+          (w.description && w.description.toLowerCase().includes(q))
+      );
     }
 
     if (featured === 'true') {
-      where.featured = true;
+      watches = watches.filter((w) => w.featured);
     }
 
-    // Build orderBy
-    let orderBy: any = { createdAt: 'desc' };
-    if (sort === 'price_asc') orderBy = { pricePHP: 'asc' };
-    else if (sort === 'price_desc') orderBy = { pricePHP: 'desc' };
-    else if (sort === 'newest') orderBy = { createdAt: 'desc' };
-    else if (sort === 'popular') orderBy = { viewCount: 'desc' };
+    // Sort
+    if (sort === 'price_asc') watches.sort((a, b) => a.price_php - b.price_php);
+    else if (sort === 'price_desc')
+      watches.sort((a, b) => b.price_php - a.price_php);
+    else if (sort === 'popular')
+      watches.sort((a, b) => b.viewCount - a.viewCount);
+    else watches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    const watches = await prisma.watch.findMany({
-      where,
-      orderBy,
-      include: {
-        _count: {
-          select: { inquiries: true },
-        },
-      },
-    });
-
-    // Map to frontend-compatible format
-    const result = watches.map((w) => ({
-      id: w.id,
-      slug: w.slug,
-      brand: w.brand,
-      model: w.model,
-      reference: w.reference,
-      name: `${w.model}${w.nickname ? ` "${w.nickname}"` : ''}`,
-      nickname: w.nickname,
-      year: w.year,
-      caseDiameter: w.caseDiameter,
-      caseMaterial: w.caseMaterial,
-      dialColor: w.dialColor,
-      movement: w.movement,
-      caliber: w.caliber,
-      braceletType: w.braceletType,
-      complications: w.complications,
-      condition: w.condition,
-      boxPapers: w.boxPapers,
-      box: w.boxPapers === 'Full Set' || w.boxPapers === 'Box Only',
-      papers: w.boxPapers === 'Full Set' || w.boxPapers === 'Papers Only',
-      tier: w.tier,
-      price_php: w.pricePHP,
-      pricePHP: w.pricePHP,
-      retailPricePHP: w.retailPricePHP,
-      marketTrend: w.marketTrend,
-      annualAppreciation: w.annualAppreciation,
-      images: w.images,
-      video: w.video ? JSON.parse(w.video) : null,
-      category: w.category,
-      availability: w.availability,
-      description: w.description,
-      specifications: w.specifications,
-      featured: w.featured,
-      status: w.status,
-      viewCount: w.viewCount,
-      inquiryCount: w._count.inquiries,
-      created_at: w.createdAt.toISOString(),
-      updated_at: w.updatedAt.toISOString(),
-    }));
-
-    return res.status(200).json(result);
+    return res.status(200).json(watches);
   } catch (error) {
     console.error('Error fetching watches:', error);
     return res.status(500).json({ error: 'Failed to fetch watches' });
