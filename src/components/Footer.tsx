@@ -1,5 +1,6 @@
 import { Instagram, Facebook, Mail, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { NewsletterSignup } from './NewsletterSignup';
 
 export function Footer() {
   return (
@@ -80,25 +81,16 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Services */}
+          {/* Newsletter */}
           <div>
-            <h4 className="mb-4 text-sm tracking-widest uppercase text-[#D4AF37]">
-              Our Services
-            </h4>
-            <ul className="space-y-2 text-neutral-400 text-sm">
-              <li>• 100% Authenticity Guarantee</li>
-              <li>• 3-Month Service Warranty</li>
-              <li>• Buy-Back Program</li>
-              <li>• Trade-In Services</li>
-              <li>• Secure Payment Options</li>
-            </ul>
+            <NewsletterSignup />
           </div>
         </div>
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-neutral-900 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
           <p className="text-neutral-500 text-sm">
-            © 2025 Manila Watch Atelier. All rights reserved.
+            © {new Date().getFullYear()} Manila Watch Atelier. All rights reserved.
           </p>
 
           {/* Social Links */}

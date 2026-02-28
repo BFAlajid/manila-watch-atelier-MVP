@@ -12,7 +12,6 @@ import { ViewCounter } from '../components/ViewCounter';
 import { LowStockBadge } from '../components/LowStockBadge';
 import { WhatsAppButton } from '../components/WhatsAppButton';
 import { InquiryModal } from '../components/InquiryModal';
-import { PaymentCalculator } from '../components/PaymentCalculator';
 import { RecentlyViewed } from '../components/RecentlyViewed';
 import { TrustBadges } from '../components/TrustBadges';
 import { WatchVideoPlayer } from '../components/WatchVideoPlayer';
@@ -22,6 +21,10 @@ import { ScarcityIndicator } from '../components/psychology/ScarcityIndicator';
 import { SocialProofBadge, TestimonialSnippet } from '../components/psychology/SocialProofBadge';
 import { UrgencyTimer } from '../components/psychology/UrgencyTimer';
 import { FOMOIndicator } from '../components/psychology/FOMOIndicator';
+import { SEOHead, getWatchJsonLd } from '../components/SEOHead';
+import { ImageLightbox, ZoomTrigger } from '../components/ImageLightbox';
+import { SocialShareButtons } from '../components/SocialShareButtons';
+import { AppointmentBooking } from '../components/AppointmentBooking';
 
 // API configuration
 const API_BASE_URL = import.meta.env.PROD
@@ -33,7 +36,9 @@ export default function WatchDetailPage() {
   const navigate = useNavigate();
   const [watch, setWatch] = useState<Watch | null>(null);
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
+  const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const {
     addToRecentlyViewed,
@@ -44,24 +49,22 @@ export default function WatchDetailPage() {
   useEffect(() => {
     if (!slug) return;
 
-    // Load watch data from API
+    // Load single watch from API (also increments viewCount server-side)
     const loadWatch = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/inventory`);
+        const response = await fetch(`${API_BASE_URL}/watches/${slug}`);
         if (!response.ok) {
-          throw new Error('Failed to load inventory');
+          if (response.status === 404) {
+            navigate('/inventory');
+            return;
+          }
+          throw new Error('Failed to load watch');
         }
 
-        const allWatches = await response.json();
-        const foundWatch = allWatches.find((w: Watch) => w.slug === slug);
-
-        if (foundWatch) {
-          setWatch(foundWatch);
-          addToRecentlyViewed(foundWatch.id);
-          incrementViewCount(foundWatch.id);
-        } else {
-          navigate('/inventory');
-        }
+        const foundWatch = await response.json();
+        setWatch(foundWatch);
+        addToRecentlyViewed(foundWatch.id);
+        incrementViewCount(foundWatch.id);
       } catch (error) {
         console.error('Error loading watch:', error);
         navigate('/inventory');
@@ -73,8 +76,46 @@ export default function WatchDetailPage() {
 
   if (!watch) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="min-h-screen bg-black text-white">
+        <Header />
+        <div className="pt-24 pb-16">
+          <div className="container mx-auto px-4">
+            <div className="h-5 w-40 bg-neutral-800 rounded animate-pulse mb-8" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Image skeleton */}
+              <div>
+                <div className="bg-neutral-900 rounded-2xl overflow-hidden mb-4">
+                  <div className="w-full h-[600px] bg-neutral-800 animate-pulse" />
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-24 bg-neutral-800 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              </div>
+              {/* Details skeleton */}
+              <div>
+                <div className="h-6 w-32 bg-[#D4AF37]/20 rounded animate-pulse mb-3" />
+                <div className="h-10 w-3/4 bg-neutral-800 rounded animate-pulse mb-4" />
+                <div className="h-5 w-48 bg-neutral-800 rounded animate-pulse mb-6" />
+                <div className="h-14 w-64 bg-[#D4AF37]/20 rounded animate-pulse mb-8" />
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="h-20 bg-neutral-900 rounded-xl animate-pulse" />
+                  <div className="h-20 bg-neutral-900 rounded-xl animate-pulse" />
+                </div>
+                <div className="h-14 w-full bg-[#D4AF37]/20 rounded-xl animate-pulse mb-8" />
+                <div className="border-t border-neutral-800 pt-8 mt-8">
+                  <div className="h-6 w-32 bg-neutral-800 rounded animate-pulse mb-4" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-4 w-5/6 bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-4 w-4/6 bg-neutral-800 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -88,8 +129,16 @@ export default function WatchDetailPage() {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-black text-white"
     >
+      <SEOHead
+        title={`${watch.brand} ${watch.model || watch.name} Ref. ${watch.reference} | Manila Watch Atelier`}
+        description={`${watch.brand} ${watch.model || watch.name} Ref. ${watch.reference}, ${watch.condition.replace('_', ' ')} condition${watch.box || watch.papers ? `, ${watch.box ? 'box' : ''}${watch.box && watch.papers ? ' & ' : ''}${watch.papers ? 'papers' : ''}` : ''}. ${price}. Grey market. Manila, Philippines.`}
+        ogImage={watch.images?.[0]}
+        ogType="product"
+        canonical={`/watch/${watch.slug}`}
+        jsonLd={getWatchJsonLd(watch)}
+      />
       <Header />
-      
+
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
@@ -117,16 +166,17 @@ export default function WatchDetailPage() {
 
               {/* Image Gallery - Shows if no video, or below video */}
               {(!watch.video || !watch.video.url) && (
-                <div className="relative bg-neutral-900 rounded-2xl overflow-hidden mb-4">
+                <div className="relative bg-neutral-900 rounded-2xl overflow-hidden mb-4 cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
                   <img
                     src={watch.images[selectedImage]}
                     alt={watch.name}
                     className="w-full h-[600px] object-cover"
                   />
-                  <div className="absolute top-4 right-4 flex gap-2">
+                  <div className="absolute top-4 right-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <FavoriteButton watchId={watch.id} watchName={watch.name} />
                     <ShareButton slug={watch.slug} watchName={watch.name} />
                   </div>
+                  <ZoomTrigger onClick={() => setLightboxOpen(true)} />
                 </div>
               )}
 
@@ -187,7 +237,7 @@ export default function WatchDetailPage() {
 
               {/* Brand & Name */}
               <p className="text-[#D4AF37] mb-2">{watch.brand}</p>
-              <h1 className="text-4xl mb-4">{watch.name}</h1>
+              <h1 className="text-4xl mb-4 font-serif">{watch.name}</h1>
 
               {/* Reference & Copy */}
               <div className="flex items-center gap-3 mb-4">
@@ -269,10 +319,25 @@ export default function WatchDetailPage() {
                 />
               </div>
 
-              <ComparisonButton watchId={watch.id} className="mb-8" />
+              {/* Book Viewing */}
+              <button
+                type="button"
+                onClick={() => setIsAppointmentOpen(true)}
+                className="w-full py-3 mb-4 border border-[#D4AF37] text-[#D4AF37] rounded-xl hover:bg-[#D4AF37]/10 transition-colors text-sm"
+              >
+                Book an In-Person Viewing
+              </button>
 
-              {/* Payment Calculator */}
-              <PaymentCalculator price={watch.price_php} />
+              <ComparisonButton watchId={watch.id} className="mb-4" />
+
+              {/* Social Share */}
+              <SocialShareButtons
+                slug={watch.slug}
+                watchName={watch.name}
+                brand={watch.brand}
+                price={price}
+                className="mb-8"
+              />
 
               {/* Description */}
               <div className="mt-8 border-t border-neutral-800 pt-8">
@@ -332,6 +397,24 @@ export default function WatchDetailPage() {
         watchName={watch.name}
         watchReference={watch.reference}
         watchPrice={price}
+        watchId={watch.id}
+      />
+
+      {/* Appointment Booking */}
+      <AppointmentBooking
+        isOpen={isAppointmentOpen}
+        onClose={() => setIsAppointmentOpen(false)}
+        watchName={`${watch.brand} ${watch.name}`}
+        watchId={watch.id}
+      />
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={watch.images || []}
+        initialIndex={selectedImage}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        alt={`${watch.brand} ${watch.name}`}
       />
     </motion.div>
   );
