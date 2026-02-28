@@ -163,8 +163,9 @@ app.delete('/api/watches/:slug', async (req, res) => {
     const inventory = JSON.parse(data);
     const index = inventory.findIndex(w => w.slug === req.params.slug);
     if (index === -1) return res.status(404).json({ error: 'Watch not found' });
-    inventory[index].status = 'SOLD';
+    const removed = inventory.splice(index, 1)[0];
     await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
+    console.log(`🗑️  Deleted watch: ${removed.brand} ${removed.name || removed.model} (${removed.slug})`);
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting watch:', error);

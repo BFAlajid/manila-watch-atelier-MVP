@@ -23,6 +23,8 @@ import { UrgencyTimer } from '../components/psychology/UrgencyTimer';
 import { FOMOIndicator } from '../components/psychology/FOMOIndicator';
 import { SEOHead, getWatchJsonLd } from '../components/SEOHead';
 import { ImageLightbox, ZoomTrigger } from '../components/ImageLightbox';
+import { SocialShareButtons } from '../components/SocialShareButtons';
+import { AppointmentBooking } from '../components/AppointmentBooking';
 
 // API configuration
 const API_BASE_URL = import.meta.env.PROD
@@ -34,6 +36,7 @@ export default function WatchDetailPage() {
   const navigate = useNavigate();
   const [watch, setWatch] = useState<Watch | null>(null);
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
+  const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -316,7 +319,25 @@ export default function WatchDetailPage() {
                 />
               </div>
 
-              <ComparisonButton watchId={watch.id} className="mb-8" />
+              {/* Book Viewing */}
+              <button
+                type="button"
+                onClick={() => setIsAppointmentOpen(true)}
+                className="w-full py-3 mb-4 border border-[#D4AF37] text-[#D4AF37] rounded-xl hover:bg-[#D4AF37]/10 transition-colors text-sm"
+              >
+                Book an In-Person Viewing
+              </button>
+
+              <ComparisonButton watchId={watch.id} className="mb-4" />
+
+              {/* Social Share */}
+              <SocialShareButtons
+                slug={watch.slug}
+                watchName={watch.name}
+                brand={watch.brand}
+                price={price}
+                className="mb-8"
+              />
 
               {/* Description */}
               <div className="mt-8 border-t border-neutral-800 pt-8">
@@ -376,6 +397,14 @@ export default function WatchDetailPage() {
         watchName={watch.name}
         watchReference={watch.reference}
         watchPrice={price}
+        watchId={watch.id}
+      />
+
+      {/* Appointment Booking */}
+      <AppointmentBooking
+        isOpen={isAppointmentOpen}
+        onClose={() => setIsAppointmentOpen(false)}
+        watchName={`${watch.brand} ${watch.name}`}
         watchId={watch.id}
       />
 

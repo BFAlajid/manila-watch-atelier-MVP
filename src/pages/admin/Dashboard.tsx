@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Package, DollarSign, TrendingUp, MessageSquare, LogOut, Plus, Edit2, Trash2,
   Eye, Search, Filter, ChevronDown, ChevronUp, Mail, Phone, Clock,
-  X, RefreshCw, AlertCircle, Upload, Image as ImageIcon, Save, Loader2
+  X, RefreshCw, AlertCircle, Upload, Image as ImageIcon, Save, Loader2,
+  BarChart3, Download, CheckSquare, Square, GripVertical, FileText, Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -81,8 +82,9 @@ interface Inquiry {
   email: string;
   phone: string | null;
   message: string;
-  status: string; // NEW, CONTACTED, CLOSED
+  status: string; // NEW, CONTACTED, FOLLOW_UP, CLOSED
   createdAt: string;
+  lastContactedAt?: string;
   watch: {
     id: string;
     slug: string;
@@ -94,8 +96,115 @@ interface Inquiry {
   } | null;
 }
 
-type ActiveTab = 'watches' | 'inquiries';
-type InquiryFilter = 'ALL' | 'NEW' | 'CONTACTED' | 'CLOSED';
+type ActiveTab = 'watches' | 'inquiries' | 'analytics';
+type InquiryFilter = 'ALL' | 'NEW' | 'CONTACTED' | 'FOLLOW_UP' | 'CLOSED';
+
+// ---------------------------------------------------------------------------
+// CSV Export helpers
+// ---------------------------------------------------------------------------
+function downloadCSV(filename: string, csvContent: string) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function escapeCSV(value: string | number | null | undefined): string {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function exportWatchesCSV(watches: Watch[]) {
+  const headers = ['Brand', 'Model', 'Name', 'Reference', 'Price (PHP)', 'Condition', 'Status'];
+  const rows = watches.map((w) => [
+    escapeCSV(w.brand),
+    escapeCSV(w.model),
+    escapeCSV(w.name),
+    escapeCSV(w.reference),
+    escapeCSV(w.pricePHP ?? w.price_php ?? 0),
+    escapeCSV(w.condition),
+    escapeCSV(w.status),
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  downloadCSV(`watches-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+}
+
+function exportInquiriesCSV(inquiries: Inquiry[]) {
+  const headers = ['Name', 'Email', 'Phone', 'Message', 'Watch', 'Date', 'Status'];
+  const rows = inquiries.map((inq) => [
+    escapeCSV(inq.name),
+    escapeCSV(inq.email),
+    escapeCSV(inq.phone),
+    escapeCSV(inq.message),
+    escapeCSV(inq.watch ? `${inq.watch.brand} ${inq.watch.model}` : 'General'),
+    escapeCSV(new Date(inq.createdAt).toLocaleDateString('en-PH')),
+    escapeCSV(inq.status),
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  downloadCSV(`inquiries-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+}
+
+// ---------------------------------------------------------------------------
+// Analytics helpers
+// ---------------------------------------------------------------------------
+interface ViewData {
+  slug: string;
+  timestamp: string;
+}
+
+function getStoredViews(): ViewData[] {
+  try {
+    const raw = localStorage.getItem('manila-watch-views');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getTopViewedWatches(watches: Watch[], views: ViewData[], limit = 8): { name: string; brand: string; count: number }[] {
+  // Count views per slug
+  const slugCounts: Record<string, number> = {};
+  views.forEach((v) => {
+    slugCounts[v.slug] = (slugCounts[v.slug] || 0) + 1;
+  });
+
+  // Also use viewCount from watches data as fallback
+  const combined: { name: string; brand: string; count: number }[] = watches.map((w) => ({
+    name: w.name || `${w.brand} ${w.model}`,
+    brand: w.brand,
+    count: (slugCounts[w.slug] || 0) + (w.viewCount || 0),
+  }));
+
+  combined.sort((a, b) => b.count - a.count);
+  return combined.slice(0, limit);
+}
+
+function getInquiriesByDay(inquiries: Inquiry[], days = 7): { date: string; count: number }[] {
+  const now = new Date();
+  const result: { date: string; count: number }[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayLabel = d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    const count = inquiries.filter((inq) => inq.createdAt?.slice(0, 10) === dateStr).length;
+    result.push({ date: dayLabel, count });
+  }
+
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -116,6 +225,10 @@ export function AdminDashboard() {
   const [filterTier, setFilterTier] = useState('All');
   const [editingWatch, setEditingWatch] = useState<Watch | null>(null);
 
+  // Bulk selection state
+  const [selectedWatches, setSelectedWatches] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
   // Add Watch modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFormData, setAddFormData] = useState<WatchFormData>({ ...emptyFormData });
@@ -134,12 +247,18 @@ export function AdminDashboard() {
   const [editError, setEditError] = useState<string | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Image drag-and-drop state for edit modal
+  const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+
   // Inquiry state
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(true);
   const [inquiriesError, setInquiriesError] = useState<string | null>(null);
   const [inquiryFilter, setInquiryFilter] = useState<InquiryFilter>('ALL');
   const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
+
+  // CRM notes state (per-inquiry, stored in localStorage)
+  const [crmNotes, setCrmNotes] = useState<Record<string, string>>({});
 
   // -------------------------------------------------------------------------
   // Data fetching
@@ -171,7 +290,16 @@ export function AdminDashboard() {
       });
       if (!res.ok) throw new Error(`Failed to fetch inquiries (${res.status})`);
       const data = await res.json();
-      setInquiries(Array.isArray(data) ? data : data.inquiries ?? []);
+      const loaded: Inquiry[] = Array.isArray(data) ? data : data.inquiries ?? [];
+      setInquiries(loaded);
+
+      // Load CRM notes from localStorage
+      const notesMap: Record<string, string> = {};
+      loaded.forEach((inq) => {
+        const saved = localStorage.getItem(`manila-crm-notes-${inq.id}`);
+        if (saved) notesMap[inq.id] = saved;
+      });
+      setCrmNotes(notesMap);
     } catch (err: any) {
       setInquiriesError(err.message ?? 'Failed to load inquiries');
     } finally {
@@ -204,22 +332,35 @@ export function AdminDashboard() {
   };
 
   // -------------------------------------------------------------------------
-  // Inquiry status change
+  // Inquiry status change (CRM progression)
   // -------------------------------------------------------------------------
   const handleInquiryStatusChange = async (id: string, newStatus: string) => {
     try {
+      const body: Record<string, any> = { status: newStatus };
+      // When marking as CONTACTED or FOLLOW_UP, update lastContactedAt
+      if (newStatus === 'CONTACTED' || newStatus === 'FOLLOW_UP') {
+        body.lastContactedAt = new Date().toISOString();
+      }
       const res = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('Failed to update status');
       setInquiries((prev) =>
-        prev.map((inq) => (inq.id === id ? { ...inq, status: newStatus } : inq))
+        prev.map((inq) => (inq.id === id ? { ...inq, ...body } : inq))
       );
     } catch {
       alert('Failed to update inquiry status. Please try again.');
     }
+  };
+
+  // -------------------------------------------------------------------------
+  // CRM Notes
+  // -------------------------------------------------------------------------
+  const handleCrmNoteChange = (id: string, note: string) => {
+    setCrmNotes((prev) => ({ ...prev, [id]: note }));
+    localStorage.setItem(`manila-crm-notes-${id}`, note);
   };
 
   // -------------------------------------------------------------------------
@@ -234,8 +375,88 @@ export function AdminDashboard() {
       });
       if (!res.ok) throw new Error('Delete failed');
       setWatches((prev) => prev.filter((w) => w.id !== id));
+      setSelectedWatches((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch {
       alert('Failed to delete watch. Please try again.');
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Bulk Actions
+  // -------------------------------------------------------------------------
+  const toggleWatchSelection = (id: string) => {
+    setSelectedWatches((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedWatches.size === filteredWatches.length) {
+      setSelectedWatches(new Set());
+    } else {
+      setSelectedWatches(new Set(filteredWatches.map((w) => w.id)));
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    if (selectedWatches.size === 0) return;
+    const label = newStatus === 'SOLD' ? 'SOLD' : 'RESERVED';
+    if (!confirm(`Mark ${selectedWatches.size} watch(es) as ${label}?`)) return;
+
+    setBulkActionLoading(true);
+    try {
+      const selectedArr = watches.filter((w) => selectedWatches.has(w.id));
+      await Promise.all(
+        selectedArr.map((w) =>
+          fetch(`${API_BASE_URL}/watches/${w.slug}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: newStatus }),
+          })
+        )
+      );
+      setWatches((prev) =>
+        prev.map((w) => (selectedWatches.has(w.id) ? { ...w, status: newStatus } : w))
+      );
+      setSelectedWatches(new Set());
+    } catch {
+      alert('Some bulk status updates failed. Please refresh and try again.');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedWatches.size === 0) return;
+    if (!confirm(`Delete ${selectedWatches.size} watch(es)? This cannot be undone.`)) return;
+
+    setBulkActionLoading(true);
+    try {
+      const selectedArr = watches.filter((w) => selectedWatches.has(w.id));
+      await Promise.all(
+        selectedArr.map((w) =>
+          fetch(`${API_BASE_URL}/watches/${w.slug}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+          })
+        )
+      );
+      setWatches((prev) => prev.filter((w) => !selectedWatches.has(w.id)));
+      setSelectedWatches(new Set());
+    } catch {
+      alert('Some deletions failed. Please refresh and try again.');
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -262,6 +483,7 @@ export function AdminDashboard() {
       setEditImageFiles([]);
       setEditImagePreviews([]);
       setEditError(null);
+      setDraggedImageIndex(null);
     }
   }, [editingWatch]);
 
@@ -292,6 +514,35 @@ export function AdminDashboard() {
 
   const removeExistingImage = (index: number) => {
     setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // -------------------------------------------------------------------------
+  // Image drag-and-drop reorder (existing images in edit modal)
+  // -------------------------------------------------------------------------
+  const handleImageDragStart = (index: number) => {
+    setDraggedImageIndex(index);
+  };
+
+  const handleImageDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleImageDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedImageIndex === null || draggedImageIndex === dropIndex) return;
+
+    setEditExistingImages((prev) => {
+      const updated = [...prev];
+      const [draggedItem] = updated.splice(draggedImageIndex, 1);
+      updated.splice(dropIndex, 0, draggedItem);
+      return updated;
+    });
+    setDraggedImageIndex(null);
+  };
+
+  const handleImageDragEnd = () => {
+    setDraggedImageIndex(null);
   };
 
   // -------------------------------------------------------------------------
@@ -471,6 +722,14 @@ export function AdminDashboard() {
     inquiryFilter === 'ALL' ? true : inq.status === inquiryFilter
   );
 
+  // Analytics data
+  const storedViews = getStoredViews();
+  const totalViews = storedViews.length + watches.reduce((sum, w) => sum + (w.viewCount || 0), 0);
+  const topViewedWatches = getTopViewedWatches(watches, storedViews);
+  const conversionRate = totalViews > 0 ? ((inquiries.length / totalViews) * 100).toFixed(1) : '0.0';
+  const inquiriesByDay = getInquiriesByDay(inquiries);
+  const maxDailyInquiries = Math.max(...inquiriesByDay.map((d) => d.count), 1);
+
   // -------------------------------------------------------------------------
   // Badge helpers
   // -------------------------------------------------------------------------
@@ -491,11 +750,12 @@ export function AdminDashboard() {
     const map: Record<string, string> = {
       NEW: 'bg-blue-100 text-blue-800',
       CONTACTED: 'bg-yellow-100 text-yellow-800',
+      FOLLOW_UP: 'bg-orange-100 text-orange-800',
       CLOSED: 'bg-green-100 text-green-800',
     };
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-800'}`}>
-        {status}
+        {status.replace('_', ' ')}
       </span>
     );
   };
@@ -664,7 +924,144 @@ export function AdminDashboard() {
               )}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'analytics'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </span>
+          </button>
         </div>
+
+        {/* ================================================================ */}
+        {/* ANALYTICS TAB                                                    */}
+        {/* ================================================================ */}
+        {activeTab === 'analytics' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* Total Views Card */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-neutral-600">Total Views</h3>
+                  <Eye className="w-5 h-5 text-neutral-400" />
+                </div>
+                <p className="text-3xl font-bold text-neutral-900">{totalViews.toLocaleString()}</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Across all watch pages
+                </p>
+              </div>
+
+              {/* Inquiry Conversion Rate */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-neutral-600">Inquiry Conversion Rate</h3>
+                  <TrendingUp className="w-5 h-5 text-neutral-400" />
+                </div>
+                <p className="text-3xl font-bold text-neutral-900">{conversionRate}%</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  {inquiries.length} inquiries / {totalViews} views
+                </p>
+              </div>
+
+              {/* Total Inquiries */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-neutral-600">Total Inquiries</h3>
+                  <MessageSquare className="w-5 h-5 text-neutral-400" />
+                </div>
+                <p className="text-3xl font-bold text-neutral-900">{inquiries.length}</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  {newInquiriesCount} new, {inquiries.filter((i) => i.status === 'CONTACTED').length} contacted
+                </p>
+              </div>
+            </div>
+
+            {/* Top Viewed Watches - Inline Bar Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+              <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-[#D4AF37]" />
+                Top Viewed Watches
+              </h3>
+              {topViewedWatches.length === 0 ? (
+                <p className="text-sm text-neutral-500">No view data available yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {topViewedWatches.map((item, idx) => {
+                    const maxCount = topViewedWatches[0]?.count || 1;
+                    const barWidth = maxCount > 0 ? Math.max((item.count / maxCount) * 100, 4) : 4;
+                    return (
+                      <div key={idx} className="flex items-center gap-3">
+                        <div className="w-6 text-xs font-medium text-neutral-400 text-right flex-shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-neutral-900 truncate mr-2">
+                              {item.name}
+                            </span>
+                            <span className="text-xs text-neutral-500 flex-shrink-0">
+                              {item.count} views
+                            </span>
+                          </div>
+                          <div className="w-full bg-neutral-100 rounded-full h-2.5">
+                            <div
+                              className="h-2.5 rounded-full transition-all duration-500"
+                              style={{
+                                width: `${barWidth}%`,
+                                backgroundColor: '#D4AF37',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Inquiries Over Time - Last 7 Days */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+              <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-[#D4AF37]" />
+                Inquiries - Last 7 Days
+              </h3>
+              <div className="flex items-end gap-2 h-40">
+                {inquiriesByDay.map((day, idx) => {
+                  const barHeight = maxDailyInquiries > 0
+                    ? Math.max((day.count / maxDailyInquiries) * 100, 4)
+                    : 4;
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-xs font-medium text-neutral-700">
+                        {day.count}
+                      </span>
+                      <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
+                        <div
+                          className="w-full max-w-[40px] rounded-t transition-all duration-500"
+                          style={{
+                            height: `${barHeight}%`,
+                            backgroundColor: day.count > 0 ? '#D4AF37' : '#e5e5e5',
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-neutral-500 whitespace-nowrap">
+                        {day.date}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* ================================================================ */}
         {/* WATCHES TAB                                                      */}
@@ -719,6 +1116,15 @@ export function AdminDashboard() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => exportWatchesCSV(filteredWatches)}
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    title="Export watches as CSV"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline text-sm">Export</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={fetchWatches}
                     className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
                     title="Refresh"
@@ -742,6 +1148,61 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Bulk Action Bar */}
+            <AnimatePresence>
+              {selectedWatches.size > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="bg-neutral-900 text-white rounded-xl p-4 mb-4 flex items-center justify-between flex-wrap gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <CheckSquare className="w-5 h-5 text-[#D4AF37]" />
+                    <span className="text-sm font-medium">
+                      {selectedWatches.size} watch{selectedWatches.size > 1 ? 'es' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleBulkStatusChange('SOLD')}
+                      disabled={bulkActionLoading}
+                      className="px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Mark as SOLD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkStatusChange('RESERVED')}
+                      disabled={bulkActionLoading}
+                      className="px-3 py-1.5 text-xs font-medium bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Mark as RESERVED
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkDelete}
+                      disabled={bulkActionLoading}
+                      className="px-3 py-1.5 text-xs font-medium bg-red-800 hover:bg-red-900 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <span className="flex items-center gap-1">
+                        <Trash2 className="w-3 h-3" />
+                        Delete Selected
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedWatches(new Set())}
+                      className="px-3 py-1.5 text-xs font-medium bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Error state */}
             {watchesError && (
@@ -769,6 +1230,20 @@ export function AdminDashboard() {
                   <table className="w-full">
                     <thead className="bg-neutral-50 border-b border-neutral-200">
                       <tr>
+                        <th className="px-4 py-3 text-left">
+                          <button
+                            type="button"
+                            onClick={toggleSelectAll}
+                            className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                            title={selectedWatches.size === filteredWatches.length ? 'Deselect all' : 'Select all'}
+                          >
+                            {selectedWatches.size === filteredWatches.length && filteredWatches.length > 0 ? (
+                              <CheckSquare className="w-4 h-4 text-neutral-700" />
+                            ) : (
+                              <Square className="w-4 h-4 text-neutral-400" />
+                            )}
+                          </button>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Watch
                         </th>
@@ -799,8 +1274,23 @@ export function AdminDashboard() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: index * 0.03 }}
-                          className="hover:bg-neutral-50 transition-colors"
+                          className={`hover:bg-neutral-50 transition-colors ${
+                            selectedWatches.has(watch.id) ? 'bg-blue-50/50' : ''
+                          }`}
                         >
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              onClick={() => toggleWatchSelection(watch.id)}
+                              className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                            >
+                              {selectedWatches.has(watch.id) ? (
+                                <CheckSquare className="w-4 h-4 text-neutral-700" />
+                              ) : (
+                                <Square className="w-4 h-4 text-neutral-400" />
+                              )}
+                            </button>
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <img
@@ -874,7 +1364,7 @@ export function AdminDashboard() {
         )}
 
         {/* ================================================================ */}
-        {/* INQUIRIES TAB                                                    */}
+        {/* INQUIRIES TAB (Enhanced CRM)                                     */}
         {/* ================================================================ */}
         {activeTab === 'inquiries' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
@@ -882,7 +1372,7 @@ export function AdminDashboard() {
             <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div className="flex gap-2 flex-wrap">
-                  {(['ALL', 'NEW', 'CONTACTED', 'CLOSED'] as InquiryFilter[]).map((status) => (
+                  {(['ALL', 'NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED'] as InquiryFilter[]).map((status) => (
                     <button
                       type="button"
                       key={status}
@@ -893,7 +1383,7 @@ export function AdminDashboard() {
                           : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                       }`}
                     >
-                      {status}
+                      {status.replace('_', ' ')}
                       {status === 'NEW' && newInquiriesCount > 0 && (
                         <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
                           {newInquiriesCount}
@@ -903,15 +1393,26 @@ export function AdminDashboard() {
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={fetchInquiries}
-                  className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
-                  <span className="text-sm">Refresh</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportInquiriesCSV(filteredInquiries)}
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    title="Export inquiries as CSV"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="text-sm">Export</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchInquiries}
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    title="Refresh"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                    <span className="text-sm">Refresh</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -966,9 +1467,8 @@ export function AdminDashboard() {
                     </thead>
                     <tbody className="divide-y divide-neutral-200">
                       {filteredInquiries.map((inquiry, index) => (
-                        <>
+                        <React.Fragment key={inquiry.id}>
                           <motion.tr
-                            key={inquiry.id}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: index * 0.03 }}
@@ -1011,6 +1511,7 @@ export function AdminDashboard() {
                                 >
                                   <option value="NEW">NEW</option>
                                   <option value="CONTACTED">CONTACTED</option>
+                                  <option value="FOLLOW_UP">FOLLOW UP</option>
                                   <option value="CLOSED">CLOSED</option>
                                 </select>
                               </div>
@@ -1043,7 +1544,7 @@ export function AdminDashboard() {
                             </td>
                           </motion.tr>
 
-                          {/* Expanded detail row */}
+                          {/* Expanded detail row with CRM features */}
                           <AnimatePresence>
                             {expandedInquiry === inquiry.id && (
                               <motion.tr
@@ -1093,12 +1594,69 @@ export function AdminDashboard() {
                                         </div>
                                       </div>
                                     )}
+
+                                    {/* CRM: Last Contacted */}
+                                    <div>
+                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                        Last Contacted
+                                      </h4>
+                                      <div className="bg-white p-4 rounded-lg border border-neutral-200">
+                                        {inquiry.lastContactedAt ? (
+                                          <p className="text-sm text-neutral-700 flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                            {new Date(inquiry.lastContactedAt).toLocaleString('en-PH', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            })}
+                                          </p>
+                                        ) : (
+                                          <p className="text-sm text-neutral-400">Not yet contacted</p>
+                                        )}
+                                        {/* Status progression buttons */}
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          {(['NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED'] as const).map((s) => (
+                                            <button
+                                              key={s}
+                                              type="button"
+                                              onClick={() => handleInquiryStatusChange(inquiry.id, s)}
+                                              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                                                inquiry.status === s
+                                                  ? 'bg-[#D4AF37] text-white'
+                                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                              }`}
+                                            >
+                                              {s.replace('_', ' ')}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* CRM: Notes */}
+                                    <div>
+                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                        CRM Notes
+                                      </h4>
+                                      <textarea
+                                        value={crmNotes[inquiry.id] ?? ''}
+                                        onChange={(e) => handleCrmNoteChange(inquiry.id, e.target.value)}
+                                        rows={4}
+                                        placeholder="Add notes about this customer..."
+                                        className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-vertical bg-white"
+                                      />
+                                      <p className="text-xs text-neutral-400 mt-1">
+                                        Notes are saved automatically to your browser
+                                      </p>
+                                    </div>
                                   </div>
                                 </td>
                               </motion.tr>
                             )}
                           </AnimatePresence>
-                        </>
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -1110,7 +1668,7 @@ export function AdminDashboard() {
                     <p className="text-neutral-600">No inquiries found</p>
                     <p className="text-sm text-neutral-500 mt-1">
                       {inquiryFilter !== 'ALL'
-                        ? `No ${inquiryFilter.toLowerCase()} inquiries. Try changing the filter.`
+                        ? `No ${inquiryFilter.toLowerCase().replace('_', ' ')} inquiries. Try changing the filter.`
                         : 'No inquiries have been submitted yet.'}
                     </p>
                   </div>
@@ -1308,17 +1866,34 @@ export function AdminDashboard() {
                   />
                 </div>
 
-                {/* Images */}
+                {/* Images with drag-and-drop reorder */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">Images</label>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Images
+                    <span className="text-xs font-normal text-neutral-400 ml-2">Drag to reorder</span>
+                  </label>
 
-                  {/* Existing images */}
+                  {/* Existing images - draggable */}
                   {editExistingImages.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs text-neutral-500 mb-2">Current images (click X to remove)</p>
+                      <p className="text-xs text-neutral-500 mb-2">Current images (drag to reorder, click X to remove)</p>
                       <div className="flex flex-wrap gap-3">
                         {editExistingImages.map((url, idx) => (
-                          <div key={url} className="relative group">
+                          <div
+                            key={`${url}-${idx}`}
+                            draggable
+                            onDragStart={() => handleImageDragStart(idx)}
+                            onDragOver={(e) => handleImageDragOver(e, idx)}
+                            onDrop={(e) => handleImageDrop(e, idx)}
+                            onDragEnd={handleImageDragEnd}
+                            className={`relative group cursor-grab active:cursor-grabbing transition-all ${
+                              draggedImageIndex === idx ? 'opacity-40 scale-95' : 'opacity-100'
+                            }`}
+                          >
+                            <div className="absolute top-1 left-1 z-10 bg-black/50 text-white rounded px-1 py-0.5 text-[10px] font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <GripVertical className="w-2.5 h-2.5" />
+                              {idx + 1}
+                            </div>
                             <img
                               src={url}
                               alt={`Watch image ${idx + 1}`}
