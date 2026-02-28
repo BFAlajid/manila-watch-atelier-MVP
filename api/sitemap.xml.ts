@@ -1,5 +1,5 @@
 // GET /api/sitemap.xml — Generate XML sitemap from database
-import { prisma } from './_lib/prisma';
+import { prisma } from './_lib/prisma.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -16,8 +16,8 @@ export default async function handler(req: any, res: any) {
     const baseUrl = process.env.APP_URL || 'https://manilawatch.com';
 
     // Collect unique brands for brand pages
-    const brands = [...new Set(watches.map((w) => w.brand))];
-    const brandSlugs = brands.map((b) =>
+    const brands = [...new Set(watches.map((w) => w.brand))] as string[];
+    const brandSlugs = brands.map((b: string) =>
       b.toLowerCase().replace(/\s+/g, '-')
     );
 

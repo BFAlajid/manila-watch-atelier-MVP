@@ -1,5 +1,5 @@
 // GET /api/watches — List all watches with filtering
-import { prisma } from './_lib/prisma';
+import { prisma } from './_lib/prisma.js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');

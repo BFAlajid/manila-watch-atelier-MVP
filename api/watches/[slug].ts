@@ -1,6 +1,6 @@
 // GET/PUT/DELETE /api/watches/:slug
-import { prisma } from '../_lib/prisma';
-import { verifyAuth } from '../_lib/auth';
+import { prisma } from '../_lib/prisma.js';
+import { verifyAuth } from '../_lib/auth.js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
