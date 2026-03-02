@@ -94,7 +94,7 @@ export function FOMOIndicator({ watchId, tier, condition, brand }: FOMOIndicator
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${activeFOMO.bgColor} ${activeFOMO.color} text-xs font-medium`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${activeFOMO.bgColor.replace('/10', '/20')} border ${activeFOMO.bgColor.replace('bg-', 'border-').replace('/10', '/30')} ${activeFOMO.color} text-xs font-medium`}
       >
         <motion.span
           animate={{

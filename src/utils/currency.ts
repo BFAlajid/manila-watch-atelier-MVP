@@ -27,9 +27,10 @@ export function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-export function getWhatsAppLink(watchName: string, price: string, reference?: string): string {
-  const message = `Hi! I'm interested in the ${watchName}${reference ? ` (Ref: ${reference})` : ''} - ${price}`;
-  const phoneNumber = '639123456789'; // Replace with actual number
+export function getWhatsAppLink(watchName: string, price: string, reference?: string, brand?: string): string {
+  const refPart = reference ? ` (Ref. ${reference})` : '';
+  const message = `Hi Sherard! I'm interested in the ${brand ? `${brand} ` : ''}${watchName}${refPart} listed at ${price} on Manila Watch Atelier. Is it still available?`;
+  const phoneNumber = import.meta.env.VITE_WHATSAPP_NUMBER || '639171234567';
   return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 }
 

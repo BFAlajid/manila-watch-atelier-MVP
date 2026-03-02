@@ -5,7 +5,7 @@
   "installCommand": "npm install",
   "framework": null,
   "functions": {
-    "api/**/*.js": {
+    "api/**/*.{js,ts}": {
       "memory": 1024,
       "maxDuration": 10
     }

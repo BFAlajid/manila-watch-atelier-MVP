@@ -65,7 +65,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
           transition={{ delay: 0.2 }}
           className="text-center mb-8"
         >
-          <h1 className="text-4xl text-white mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+          <h1 className="text-4xl text-white mb-2 font-serif">
             Manila Watch Atelier
           </h1>
           <p className="text-neutral-400">Admin Portal</p>

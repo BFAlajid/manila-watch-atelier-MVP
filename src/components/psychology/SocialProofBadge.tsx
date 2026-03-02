@@ -97,7 +97,7 @@ export function SocialProofBadge({ watchId, tier, brand, condition }: SocialProo
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: index * 0.1 }}
-          className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${badge.bgColor} ${badge.color} text-xs font-medium`}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${badge.bgColor.replace('/10', '/20')} border ${badge.bgColor.replace('bg-', 'border-').replace('/10', '/30')} ${badge.color} text-xs font-medium`}
         >
           {badge.icon}
           <span>{badge.label}</span>

@@ -3,15 +3,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
 import { toast } from 'sonner@2.0.3';
 
+const API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001/api';
+
 interface InquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
   watchName: string;
   watchReference: string;
   watchPrice: string;
+  watchId?: string;
 }
 
-export function InquiryModal({ isOpen, onClose, watchName, watchReference, watchPrice }: InquiryModalProps) {
+export function InquiryModal({ isOpen, onClose, watchName, watchReference, watchPrice, watchId }: InquiryModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,24 +29,32 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate sending email (replace with actual email service like EmailJS or Formspree)
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch(`${API_BASE_URL}/inquiries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          message: formData.message || `Interested in ${watchName} (Ref: ${watchReference}) at ${watchPrice}`,
+          watchId: watchId || undefined,
+        }),
+      });
 
-    // Store inquiry in localStorage for admin to review
-    const inquiries = JSON.parse(localStorage.getItem('manila-watch-inquiries') || '[]');
-    inquiries.push({
-      ...formData,
-      watchName,
-      watchReference,
-      watchPrice,
-      timestamp: new Date().toISOString()
-    });
-    localStorage.setItem('manila-watch-inquiries', JSON.stringify(inquiries));
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to send inquiry');
+      }
 
-    toast.success('Inquiry sent! We\'ll contact you within 24 hours.');
-    setIsSubmitting(false);
-    onClose();
-    setFormData({ name: '', email: '', phone: '', message: '' });
+      toast.success('Inquiry sent! Sherard will contact you within 24 hours.');
+      onClose();
+      setFormData({ name: '', email: '', phone: '', message: '' });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send inquiry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -74,6 +87,7 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
             <div className="bg-neutral-900 rounded-2xl max-w-lg w-full p-8 relative border border-neutral-800">
               <button
                 onClick={onClose}
+                aria-label="Close inquiry form"
                 className="absolute top-4 right-4 text-neutral-400 hover:text-white"
               >
                 <X className="w-6 h-6" />
