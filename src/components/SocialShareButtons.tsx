@@ -1,5 +1,5 @@
 import { Facebook, Twitter, Link2, Mail } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { copyToClipboard, getShareUrl } from '../utils/currency';
 
 interface SocialShareButtonsProps {

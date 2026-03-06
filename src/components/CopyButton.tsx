@@ -1,7 +1,7 @@
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { copyToClipboard } from '../utils/currency';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface CopyButtonProps {
   text: string;

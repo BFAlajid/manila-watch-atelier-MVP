@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { fetchExchangeRates, convertPrice, formatCurrency, initializeCurrency, type ExchangeRates } from '../lib/currency';
 
@@ -95,96 +95,105 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Currency conversion functions
-  const convertPriceFunc = (priceInPHP: number): number => {
+  const convertPriceFunc = useCallback((priceInPHP: number): number => {
     if (!exchangeRates) return priceInPHP;
     return convertPrice(priceInPHP, currency, exchangeRates.rates);
-  };
+  }, [exchangeRates, currency]);
 
-  const formatPriceFunc = (priceInPHP: number): string => {
+  const formatPriceFunc = useCallback((priceInPHP: number): string => {
     const converted = convertPriceFunc(priceInPHP);
     return formatCurrency(converted, currency);
-  };
+  }, [convertPriceFunc, currency]);
 
-  const setCurrency = (newCurrency: string) => {
+  const setCurrency = useCallback((newCurrency: string) => {
     setCurrencyState(newCurrency);
     localStorage.setItem('manila-watch-currency', newCurrency);
-  };
+  }, [setCurrencyState]);
   
   // Favorites
-  const addFavorite = (watchId: string) => {
+  const addFavorite = useCallback((watchId: string) => {
     setFavorites(prev => [...new Set([...prev, watchId])]);
-  };
-  
-  const removeFavorite = (watchId: string) => {
+  }, [setFavorites]);
+
+  const removeFavorite = useCallback((watchId: string) => {
     setFavorites(prev => prev.filter(id => id !== watchId));
-  };
-  
-  const isFavorite = (watchId: string) => favorites.includes(watchId);
-  
+  }, [setFavorites]);
+
+  const isFavorite = useCallback((watchId: string) => favorites.includes(watchId), [favorites]);
+
   // Comparison (max 3)
-  const addToComparison = (watchId: string) => {
-    if (comparison.length >= 3) return;
-    setComparison(prev => [...new Set([...prev, watchId])]);
-  };
-  
-  const removeFromComparison = (watchId: string) => {
+  const addToComparison = useCallback((watchId: string) => {
+    setComparison(prev => {
+      if (prev.length >= 3) return prev;
+      return [...new Set([...prev, watchId])];
+    });
+  }, [setComparison]);
+
+  const removeFromComparison = useCallback((watchId: string) => {
     setComparison(prev => prev.filter(id => id !== watchId));
-  };
-  
-  const clearComparison = () => {
+  }, [setComparison]);
+
+  const clearComparison = useCallback(() => {
     setComparison([]);
-  };
-  
-  const isInComparison = (watchId: string) => comparison.includes(watchId);
-  
+  }, [setComparison]);
+
+  const isInComparison = useCallback((watchId: string) => comparison.includes(watchId), [comparison]);
+
   // Recently Viewed (max 8)
-  const addToRecentlyViewed = (watchId: string) => {
+  const addToRecentlyViewed = useCallback((watchId: string) => {
     setRecentlyViewed(prev => {
       const filtered = prev.filter(id => id !== watchId);
       return [watchId, ...filtered].slice(0, 8);
     });
-  };
-  
+  }, [setRecentlyViewed]);
+
   // View Counts
-  const incrementViewCount = (watchId: string) => {
+  const incrementViewCount = useCallback((watchId: string) => {
     setViewCounts(prev => ({
       ...prev,
       [watchId]: (prev[watchId] || 0) + 1
     }));
-  };
-  
+  }, [setViewCounts]);
+
   // Currency Toggle
-  const toggleCurrency = () => {
+  const toggleCurrency = useCallback(() => {
     setCurrencyMode(prev => prev === 'PHP' ? 'USD' : 'PHP');
-  };
+  }, [setCurrencyMode]);
   
+  const value = useMemo(() => ({
+    favorites,
+    addFavorite,
+    removeFavorite,
+    isFavorite,
+    comparison,
+    addToComparison,
+    removeFromComparison,
+    clearComparison,
+    isInComparison,
+    recentlyViewed,
+    addToRecentlyViewed,
+    viewCounts,
+    incrementViewCount,
+    currency,
+    setCurrency,
+    exchangeRates,
+    convertPrice: convertPriceFunc,
+    formatPrice: formatPriceFunc,
+    isLoadingRates,
+    currencyMode,
+    toggleCurrency,
+    exchangeRate
+  }), [
+    favorites, addFavorite, removeFavorite, isFavorite,
+    comparison, addToComparison, removeFromComparison, clearComparison, isInComparison,
+    recentlyViewed, addToRecentlyViewed,
+    viewCounts, incrementViewCount,
+    currency, setCurrency, exchangeRates, convertPriceFunc, formatPriceFunc, isLoadingRates,
+    currencyMode, toggleCurrency, exchangeRate
+  ]);
+
   return (
-    <WatchContext.Provider value={{
-      favorites,
-      addFavorite,
-      removeFavorite,
-      isFavorite,
-      comparison,
-      addToComparison,
-      removeFromComparison,
-      clearComparison,
-      isInComparison,
-      recentlyViewed,
-      addToRecentlyViewed,
-      viewCounts,
-      incrementViewCount,
-      // Enhanced currency
-      currency,
-      setCurrency,
-      exchangeRates,
-      convertPrice: convertPriceFunc,
-      formatPrice: formatPriceFunc,
-      isLoadingRates,
-      // Legacy compatibility
-      currencyMode,
-      toggleCurrency,
-      exchangeRate
-    }}>
+    <WatchContext.Provider value={value}>
       {children}
     </WatchContext.Provider>
   );

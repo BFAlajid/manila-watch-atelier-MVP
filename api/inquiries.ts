@@ -1,27 +1,33 @@
-// POST /api/inquiries — public: submit inquiry
+// POST /api/inquiries — public: submit inquiry (rate-limited)
 // GET  /api/inquiries — admin: list all inquiries
 import crypto from 'crypto';
 import { getWatches, getInquiries, saveInquiries } from './_lib/data.js';
 import { verifyAuth } from './_lib/auth.js';
+import { setCorsHeaders } from './_lib/cors.js';
+import { inquirySchema } from './_lib/validation.js';
+import { isRateLimited } from './_lib/rate-limit.js';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // ── POST: public — submit inquiry ──
   if (req.method === 'POST') {
     try {
-      const { name, email, phone, message, watchId } = req.body;
-
-      if (!name || !email) {
-        return res.status(400).json({ error: 'Name and email are required' });
+      const parsed = inquirySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parsed.error.flatten().fieldErrors,
+        });
       }
 
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return res.status(400).json({ error: 'Invalid email address' });
+      const { name, email, phone, message, watchId } = parsed.data;
+
+      // Rate limit: 3 inquiries per email per hour
+      if (isRateLimited(`inquiry:${email}`, 3, 60 * 60 * 1000)) {
+        return res.status(429).json({ error: 'Too many inquiries. Please try again later.' });
       }
 
       // Attach watch info if watchId provided
@@ -83,7 +89,6 @@ export default function handler(req: any, res: any) {
         filtered = filtered.filter((i: any) => i.status === status);
       }
 
-      // Sort newest first
       filtered.sort(
         (a: any, b: any) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

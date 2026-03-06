@@ -1,6 +1,6 @@
 import { GitCompare } from 'lucide-react';
 import { useWatch } from '../context/WatchContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ComparisonButtonProps {
   watchId: string;
