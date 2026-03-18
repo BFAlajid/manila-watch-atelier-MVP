@@ -17,10 +17,6 @@ import { TrustBadges } from '../components/TrustBadges';
 import { WatchVideoPlayer } from '../components/WatchVideoPlayer';
 import { useWatch } from '../context/WatchContext';
 import type { Watch } from '../types/inventory';
-import { ScarcityIndicator } from '../components/psychology/ScarcityIndicator';
-import { SocialProofBadge, TestimonialSnippet } from '../components/psychology/SocialProofBadge';
-import { UrgencyTimer } from '../components/psychology/UrgencyTimer';
-import { FOMOIndicator } from '../components/psychology/FOMOIndicator';
 import { SEOHead, getWatchJsonLd } from '../components/SEOHead';
 import { ImageLightbox, ZoomTrigger } from '../components/ImageLightbox';
 import { SocialShareButtons } from '../components/SocialShareButtons';
@@ -219,22 +215,6 @@ export default function WatchDetailPage() {
 
             {/* Details */}
             <div>
-              {/* FOMO & Social Proof Badges */}
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                <FOMOIndicator
-                  watchId={watch.id}
-                  tier={watch.tier || 'A'}
-                  condition={watch.condition}
-                  brand={watch.brand}
-                />
-                <SocialProofBadge
-                  watchId={watch.id}
-                  tier={watch.tier || 'A'}
-                  brand={watch.brand}
-                  condition={watch.condition}
-                />
-              </div>
-
               {/* Brand & Name */}
               <p className="text-[#D4AF37] mb-2">{watch.brand}</p>
               <h1 className="text-4xl mb-4 font-serif">{watch.name}</h1>
@@ -252,27 +232,6 @@ export default function WatchDetailPage() {
               <div className="mb-6">
                 <p className="text-5xl text-[#D4AF37] mb-2">{price}</p>
                 <LowStockBadge tier={watch.tier} availability={watch.availability} />
-              </div>
-
-              {/* Scarcity Indicator */}
-              {(watch.tier === 'A' || !watch.tier) && (
-                <div className="mb-6">
-                  <ScarcityIndicator
-                    tier="A"
-                    watchId={watch.id}
-                    availability={watch.availability}
-                  />
-                </div>
-              )}
-
-              {/* Urgency Timer */}
-              <div className="mb-6">
-                <UrgencyTimer
-                  tier={watch.tier || 'A'}
-                  estimatedArrival={watch.estimated_arrival}
-                  watchId={watch.id}
-                  pricePhp={watch.price_php}
-                />
               </div>
 
               {/* Condition & Accessories */}
@@ -358,12 +317,6 @@ export default function WatchDetailPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Customer Testimonials */}
-              <div className="mt-8">
-                <h3 className="text-xl mb-4">Customer Reviews</h3>
-                <TestimonialSnippet brand={watch.brand} />
               </div>
 
               {/* Trust Badge */}

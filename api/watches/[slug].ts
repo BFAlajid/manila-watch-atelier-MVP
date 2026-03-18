@@ -1,11 +1,11 @@
 // GET/PUT/DELETE /api/watches/:slug
 import { getWatches, saveWatches } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
+import { setCorsHeaders } from '../_lib/cors.js';
+import { watchUpdateSchema } from '../_lib/validation.js';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -25,7 +25,6 @@ export default function handler(req: any, res: any) {
         return res.status(404).json({ error: 'Watch not found' });
       }
 
-      // Increment view count (best-effort, won't persist on Vercel)
       watch.viewCount = (watch.viewCount || 0) + 1;
 
       return res.status(200).json(watch);
@@ -43,6 +42,14 @@ export default function handler(req: any, res: any) {
     }
 
     try {
+      const parsed = watchUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
       const watches = getWatches();
       const index = watches.findIndex((w) => w.slug === slug);
       if (index === -1) {
@@ -51,7 +58,7 @@ export default function handler(req: any, res: any) {
 
       watches[index] = {
         ...watches[index],
-        ...req.body,
+        ...parsed.data,
         updated_at: new Date().toISOString(),
       };
 

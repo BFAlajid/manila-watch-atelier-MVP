@@ -1,7 +1,7 @@
 import { X, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.PROD
   ? '/api'

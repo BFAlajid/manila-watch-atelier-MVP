@@ -1,7 +1,7 @@
 import { Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useWatch } from '../context/WatchContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FavoriteButtonProps {
   watchId: string;

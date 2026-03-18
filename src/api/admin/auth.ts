@@ -40,8 +40,24 @@ export const authAPI = {
 
   verify: async (token: string) => {
     try {
-      const expiresAt = localStorage.getItem('admin_token_expires');
-      if (!expiresAt || Date.now() > parseInt(expiresAt)) {
+      // Server-side verification — do not trust localStorage expiry alone
+      const response = await fetch(`${API_BASE_URL}/watches`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      // The watches endpoint is public, but we use an authenticated admin
+      // endpoint to truly verify. Use inquiries GET which requires auth.
+      const authCheck = await fetch(`${API_BASE_URL}/inquiries?limit=1`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!authCheck.ok) {
+        // Token is invalid or expired server-side — clean up
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_token_expires');
+        localStorage.removeItem('admin_username');
         return { success: false, error: 'Session expired' };
       }
 

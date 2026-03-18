@@ -6,7 +6,6 @@ import { DealerSection } from '../components/DealerSection';
 import { Footer } from '../components/Footer';
 import { TrustBadges } from '../components/TrustBadges';
 import { RecentlyViewed } from '../components/RecentlyViewed';
-import { RecentActivityFeed } from '../components/psychology/FOMOIndicator';
 import { WatchRequestForm } from '../components/WatchRequestForm';
 import { motion } from 'motion/react';
 import { Search } from 'lucide-react';
@@ -38,8 +37,6 @@ export default function HomePage() {
           {/* Sidebar with Recent Activity */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-6">
-              <RecentActivityFeed />
-
               {/* Watch Request CTA */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

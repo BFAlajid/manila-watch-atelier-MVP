@@ -1,5 +1,5 @@
-// Simple development API server for local testing
-// In production, Vercel serverless functions + Prisma handle this
+// Development API server for local testing
+// In production, Vercel serverless functions handle this
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -16,7 +16,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.APP_URL || 'http://localhost:3000',
+}));
 app.use(express.json());
 
 // Configure multer for image uploads
@@ -116,13 +118,15 @@ app.get('/api/watches/:slug', async (req, res) => {
 });
 
 // ─── PUT /api/watches/:slug ──────────────────────────────────────────
-app.put('/api/watches/:slug', async (req, res) => {
+app.put('/api/watches/:slug', requireAuth, async (req, res) => {
   try {
     const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
     const inventory = JSON.parse(data);
     const index = inventory.findIndex(w => w.slug === req.params.slug);
     if (index === -1) return res.status(404).json({ error: 'Watch not found' });
-    inventory[index] = { ...inventory[index], ...req.body, updated_at: new Date().toISOString() };
+    // Prevent overwriting server-controlled fields via raw body spread
+    const { id, created_at, slug, viewCount, inquiryCount, ...safeFields } = req.body;
+    inventory[index] = { ...inventory[index], ...safeFields, updated_at: new Date().toISOString() };
     await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
     res.json(inventory[index]);
   } catch (error) {
@@ -132,7 +136,7 @@ app.put('/api/watches/:slug', async (req, res) => {
 });
 
 // ─── POST /api/watches ──────────────────────────────────────────────
-app.post('/api/watches', async (req, res) => {
+app.post('/api/watches', requireAuth, async (req, res) => {
   try {
     const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
     const inventory = JSON.parse(data);
@@ -157,7 +161,7 @@ app.post('/api/watches', async (req, res) => {
 });
 
 // ─── DELETE /api/watches/:slug ───────────────────────────────────────
-app.delete('/api/watches/:slug', async (req, res) => {
+app.delete('/api/watches/:slug', requireAuth, async (req, res) => {
   try {
     const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
     const inventory = JSON.parse(data);
@@ -175,6 +179,18 @@ app.delete('/api/watches/:slug', async (req, res) => {
 
 // ─── POST /api/inquiries ─────────────────────────────────────────────
 const inquiriesPath = path.join(__dirname, 'src', 'data', 'inquiries.json');
+
+// ─── Simple rate limiter ────────────────────────────────────────────
+const rateLimitWindows = new Map();
+function isRateLimited(key, maxRequests, windowMs) {
+  const now = Date.now();
+  const timestamps = rateLimitWindows.get(key) || [];
+  const valid = timestamps.filter(t => now - t < windowMs);
+  if (valid.length >= maxRequests) { rateLimitWindows.set(key, valid); return true; }
+  valid.push(now);
+  rateLimitWindows.set(key, valid);
+  return false;
+}
 
 async function getInquiries() {
   try {
@@ -219,6 +235,12 @@ app.post('/api/inquiries', async (req, res) => {
   try {
     const { name, email, phone, message, watchId } = req.body;
     if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' });
+
+    // Rate limit: 3 per email per hour
+    if (isRateLimited(`inquiry:${email}`, 3, 60 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Too many inquiries. Please try again later.' });
+    }
 
     const inquiries = await getInquiries();
     const inquiry = {
@@ -256,7 +278,7 @@ app.post('/api/inquiries', async (req, res) => {
   }
 });
 
-app.get('/api/inquiries', async (req, res) => {
+app.get('/api/inquiries', requireAuth, async (req, res) => {
   try {
     const inquiries = await getInquiries();
     res.json(inquiries);
@@ -267,12 +289,17 @@ app.get('/api/inquiries', async (req, res) => {
 });
 
 // ─── PUT /api/inquiries/:id ──────────────────────────────────────────
-app.put('/api/inquiries/:id', async (req, res) => {
+app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
   try {
     const inquiries = await getInquiries();
     const index = inquiries.findIndex(i => i.id === req.params.id);
     if (index === -1) return res.status(404).json({ error: 'Inquiry not found' });
-    inquiries[index] = { ...inquiries[index], ...req.body };
+    // Only allow updating status field — prevent arbitrary field injection
+    const { status } = req.body;
+    if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
+    }
+    inquiries[index] = { ...inquiries[index], status };
     await saveInquiries(inquiries);
     res.json({ success: true, inquiry: inquiries[index] });
   } catch (error) {
@@ -282,7 +309,7 @@ app.put('/api/inquiries/:id', async (req, res) => {
 });
 
 // ─── POST /api/upload-image ──────────────────────────────────────────
-app.post('/api/upload-image', upload.array('images', 10), async (req, res) => {
+app.post('/api/upload-image', requireAuth, upload.array('images', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No images uploaded' });
@@ -296,31 +323,78 @@ app.post('/api/upload-image', upload.array('images', 10), async (req, res) => {
   }
 });
 
+// ─── HMAC Token Helpers ─────────────────────────────────────────────
+function getTokenSecret() {
+  const salt = process.env.SALT;
+  const hash = process.env.ADMIN_PASSWORD_HASH;
+  if (!salt || !hash) throw new Error('SALT and ADMIN_PASSWORD_HASH env vars required');
+  return `${salt}:${hash}`;
+}
+
+function createSignedToken(username) {
+  const now = Date.now();
+  const expiresAt = now + 24 * 60 * 60 * 1000;
+  const payload = { sub: username, iat: now, exp: expiresAt };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', getTokenSecret()).update(encoded).digest('base64url');
+  return { token: `${encoded}.${signature}`, expiresAt };
+}
+
+function verifyToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [encoded, signature] = parts;
+  const expectedSig = crypto.createHmac('sha256', getTokenSecret()).update(encoded).digest('base64url');
+  if (signature.length !== expectedSig.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString());
+    if (!payload.sub || !payload.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch { return null; }
+}
+
+// ─── Auth Middleware for Admin Routes ────────────────────────────────
+function requireAuth(req, res, next) {
+  const payload = verifyToken(req.headers.authorization);
+  if (!payload) return res.status(401).json({ error: 'Unauthorized' });
+  req.adminUser = payload.sub;
+  next();
+}
+
 // ─── POST /api/auth ──────────────────────────────────────────────────
 app.post('/api/auth', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+    const SALT = process.env.SALT;
 
-    if (!ADMIN_PASSWORD_HASH) {
-      // In dev mode, accept any password if hash not configured
-      console.log('⚠️  ADMIN_PASSWORD_HASH not set — accepting any credentials for dev');
-      const token = crypto.randomBytes(32).toString('hex');
-      return res.json({ success: true, token, expiresAt: Date.now() + 86400000, username: ADMIN_USERNAME });
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !SALT) {
+      console.error('Auth env vars missing');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
     }
 
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
 
-    const salt = process.env.SALT || 'manila-watch-salt';
-    const passwordHash = crypto.createHash('sha256').update(password + salt).digest('hex');
+    const passwordHash = crypto.createHash('sha256').update(password + SALT).digest('hex');
 
-    if (username === ADMIN_USERNAME && passwordHash === ADMIN_PASSWORD_HASH) {
-      const token = crypto.randomBytes(32).toString('hex');
-      console.log(`✅ Admin login successful: ${username}`);
-      res.json({ success: true, token, expiresAt: Date.now() + 86400000, username: ADMIN_USERNAME });
+    // Timing-safe comparison
+    const userBuf = Buffer.from(String(username));
+    const adminBuf = Buffer.from(ADMIN_USERNAME);
+    const hashBuf = Buffer.from(passwordHash);
+    const expectedBuf = Buffer.from(ADMIN_PASSWORD_HASH);
+    const usernameMatch = userBuf.length === adminBuf.length && crypto.timingSafeEqual(userBuf, adminBuf);
+    const passwordMatch = hashBuf.length === expectedBuf.length && crypto.timingSafeEqual(hashBuf, expectedBuf);
+
+    if (usernameMatch && passwordMatch) {
+      const { token, expiresAt } = createSignedToken(ADMIN_USERNAME);
+      console.log(`Admin login successful: ${username}`);
+      res.json({ success: true, token, expiresAt, username: ADMIN_USERNAME });
     } else {
-      console.log(`❌ Failed login attempt: ${username}`);
+      console.log(`Failed login attempt: ${username}`);
       res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
   } catch (error) {

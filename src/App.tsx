@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { HelmetProvider } from 'react-helmet-async';
-import { Toaster } from 'sonner@2.0.3';
+import { Toaster } from 'sonner';
 import { WatchProvider } from './context/WatchContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';

@@ -1,11 +1,12 @@
 // POST /api/watches/create — Admin: create new watch
+import crypto from 'crypto';
 import { getWatches, saveWatches } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
+import { setCorsHeaders } from '../_lib/cors.js';
+import { watchCreateSchema } from '../_lib/validation.js';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -19,13 +20,15 @@ export default function handler(req: any, res: any) {
   }
 
   try {
-    const data = req.body;
-
-    if (!data.slug || !data.brand || !data.model || !data.pricePHP) {
-      return res
-        .status(400)
-        .json({ error: 'Missing required fields: slug, brand, model, pricePHP' });
+    const parsed = watchCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: parsed.error.flatten().fieldErrors,
+      });
     }
+
+    const data = parsed.data;
 
     const watches = getWatches();
     const existing = watches.find((w) => w.slug === data.slug);
@@ -36,41 +39,41 @@ export default function handler(req: any, res: any) {
     }
 
     const watch = {
-      id: data.id || `watch-${Date.now()}`,
+      id: `watch-${crypto.randomUUID()}`,
       slug: data.slug,
       brand: data.brand,
       model: data.model,
       reference: data.reference || '',
       name: data.name || `${data.model}${data.nickname ? ` "${data.nickname}"` : ''}`,
       nickname: data.nickname || null,
-      year: data.year ? parseInt(data.year) : null,
-      price_php: parseInt(data.pricePHP),
-      pricePHP: parseInt(data.pricePHP),
-      retailPricePHP: data.retailPricePHP ? parseInt(data.retailPricePHP) : null,
-      condition: data.condition || 'excellent',
-      box: data.box ?? true,
-      papers: data.papers ?? true,
-      boxPapers: data.boxPapers || 'Full Set',
-      tier: data.tier || 'A',
-      availability: data.availability || 'in_stock',
-      category: data.category || 'Sport',
-      description: data.description || '',
-      images: data.images || [],
+      year: data.year || null,
+      price_php: data.pricePHP,
+      pricePHP: data.pricePHP,
+      retailPricePHP: data.retailPricePHP || null,
+      condition: data.condition,
+      box: data.box,
+      papers: data.papers,
+      boxPapers: data.boxPapers,
+      tier: data.tier,
+      availability: data.availability,
+      category: data.category,
+      description: data.description,
+      images: data.images,
       video: data.video || null,
-      specifications: data.specifications || {},
-      status: data.status || 'AVAILABLE',
-      featured: data.featured || false,
+      specifications: data.specifications,
+      status: data.status,
+      featured: data.featured,
       viewCount: 0,
       inquiryCount: 0,
-      marketTrend: data.marketTrend || 'STABLE',
-      annualAppreciation: data.annualAppreciation ? parseFloat(data.annualAppreciation) : 0,
-      caseDiameter: data.caseDiameter ? parseFloat(data.caseDiameter) : null,
+      marketTrend: data.marketTrend,
+      annualAppreciation: data.annualAppreciation,
+      caseDiameter: data.caseDiameter || null,
       caseMaterial: data.caseMaterial || null,
       dialColor: data.dialColor || null,
       movement: data.movement || null,
       caliber: data.caliber || null,
       braceletType: data.braceletType || null,
-      complications: data.complications || [],
+      complications: data.complications,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

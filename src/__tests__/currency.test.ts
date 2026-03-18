@@ -30,11 +30,11 @@ describe('getWhatsAppLink', () => {
     expect(link).toContain('720%2C000');
   });
 
-  it('falls back to generic message without brand', () => {
+  it('generates message without brand prefix when brand is omitted', () => {
     const link = getWhatsAppLink('Submariner', '₱720,000', '126610LN');
     expect(link).toContain('wa.me/');
     expect(link).toContain('Submariner');
-    expect(link).not.toContain('Hi%20Sherard');
+    expect(link).not.toContain('Rolex');
   });
 });
 

@@ -2,9 +2,6 @@ import { Watch } from '../types/inventory';
 import { ShoppingCart, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { ScarcityIndicator } from './psychology/ScarcityIndicator';
-import { SocialProofBadge } from './psychology/SocialProofBadge';
-import { FOMOIndicator } from './psychology/FOMOIndicator';
 
 interface ProductCardProps {
   watch: Watch & { image?: string };
@@ -78,16 +75,6 @@ export function ProductCard({ watch, onSelect, onAddToCart }: ProductCardProps) 
           {watch.category}
         </motion.div>
 
-        {/* FOMO Indicator - Top Right */}
-        <div className="absolute top-3 right-3">
-          <FOMOIndicator
-            watchId={watch.id}
-            tier={watch.availability || 'A'}
-            condition={watch.condition}
-            brand={watch.brand}
-          />
-        </div>
-
         {/* Shine effect on hover */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
@@ -104,14 +91,6 @@ export function ProductCard({ watch, onSelect, onAddToCart }: ProductCardProps) 
         animate={{ y: isHovered ? -5 : 0 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Social Proof Badges */}
-        <SocialProofBadge
-          watchId={watch.id}
-          tier={watch.availability || 'A'}
-          brand={watch.brand}
-          condition={watch.condition}
-        />
-
         <p className="text-sm text-neutral-500 tracking-wide uppercase">
           {watch.brand}
         </p>
@@ -129,14 +108,6 @@ export function ProductCard({ watch, onSelect, onAddToCart }: ProductCardProps) 
           ₱{(watch.price_php || 0).toLocaleString()}
         </motion.p>
 
-        {/* Scarcity Indicator - Only for Tier A */}
-        {(watch.availability === 'A' || !watch.availability) && (
-          <ScarcityIndicator
-            tier="A"
-            watchId={watch.id}
-            availability={watch.availability}
-          />
-        )}
       </motion.div>
     </motion.div>
   );

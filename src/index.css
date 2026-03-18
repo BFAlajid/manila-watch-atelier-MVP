@@ -2492,3 +2492,128 @@ html {
   inherits: false;
   initial-value: 1;
 }
+
+/* ── Missing Tailwind utilities ── */
+.text-neutral-900 {
+  color: var(--color-neutral-900);
+}
+.text-neutral-200 {
+  color: var(--color-neutral-200);
+}
+.text-neutral-100 {
+  color: var(--color-neutral-100);
+}
+.bg-neutral-200 {
+  background-color: var(--color-neutral-200);
+}
+.bg-neutral-700 {
+  background-color: var(--color-neutral-700);
+}
+.bg-blue-50 {
+  background-color: oklch(.97 .014 254.6);
+}
+.bg-red-50 {
+  background-color: oklch(.971 .013 17.38);
+}
+.border-neutral-600 {
+  border-color: var(--color-neutral-600);
+}
+
+/* ── Dark mode: flip light-only colors for dark backgrounds ── */
+.dark .text-neutral-900 {
+  color: var(--color-neutral-100);
+}
+.dark .text-neutral-700 {
+  color: var(--color-neutral-300);
+}
+.dark .text-neutral-600 {
+  color: var(--color-neutral-400);
+}
+.dark .text-neutral-500 {
+  color: var(--color-neutral-400);
+}
+.dark .bg-white {
+  background-color: var(--card);
+}
+.dark .bg-neutral-50 {
+  background-color: var(--secondary);
+}
+.dark .bg-neutral-100 {
+  background-color: var(--secondary);
+}
+.dark .border-neutral-200 {
+  border-color: var(--border);
+}
+.dark .border-neutral-300 {
+  border-color: var(--border);
+}
+.dark .divide-neutral-200 > :not(:first-child) {
+  border-color: var(--border);
+}
+.dark .hover\:bg-neutral-50:hover {
+  background-color: var(--accent);
+}
+.dark .hover\:bg-neutral-100:hover {
+  background-color: var(--accent);
+}
+.dark .hover\:bg-blue-50:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+.dark .hover\:bg-red-50:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+/* Dark mode badges */
+.dark .bg-green-100 {
+  background-color: rgba(34, 197, 94, 0.15);
+}
+.dark .text-green-800 {
+  color: var(--color-green-400);
+}
+.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+.dark .text-blue-800 {
+  color: var(--color-blue-400);
+}
+.dark .bg-yellow-100 {
+  background-color: rgba(234, 179, 8, 0.15);
+}
+.dark .text-yellow-800 {
+  color: oklch(.795 .184 86.047);
+}
+.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+.dark .text-red-800 {
+  color: var(--color-red-400);
+}
+.dark .bg-purple-100 {
+  background-color: rgba(168, 85, 247, 0.15);
+}
+.dark .text-purple-800 {
+  color: oklch(.714 .203 305.504);
+}
+.dark .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.15);
+}
+.dark .text-orange-800 {
+  color: var(--color-orange-500);
+}
+
+/* ── Dark mode form inputs ── */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--secondary);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--muted-foreground);
+}
+.dark option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
