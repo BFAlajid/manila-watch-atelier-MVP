@@ -398,9 +398,11 @@ export function AddWatchForm({ onSave, onCancel }: AddWatchFormProps) {
                 formData.append('images', files[i]);
               }
 
-              // Upload to API
+              // Upload to API (with auth token)
+              const token = localStorage.getItem('admin_token');
               const response = await fetch(`${API_BASE_URL}/upload-image`, {
                 method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
                 body: formData,
               });
 

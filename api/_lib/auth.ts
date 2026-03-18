@@ -16,10 +16,11 @@ interface TokenPayload {
 }
 
 function getSecret(): string {
-  // Use SALT + PASSWORD_HASH as the signing secret so tokens auto-invalidate
-  // if either changes. Falls back to SALT alone.
-  const salt = process.env.SALT || 'manila-watch-salt';
-  const hash = process.env.ADMIN_PASSWORD_HASH || '';
+  const salt = process.env.SALT;
+  const hash = process.env.ADMIN_PASSWORD_HASH;
+  if (!salt || !hash) {
+    throw new Error('SALT and ADMIN_PASSWORD_HASH environment variables are required');
+  }
   return `${salt}:${hash}`;
 }
 
@@ -39,10 +40,15 @@ function verify(token: string): TokenPayload | null {
 
   const [encoded, signature] = parts;
 
-  const expectedSig = crypto
-    .createHmac('sha256', getSecret())
-    .update(encoded)
-    .digest('base64url');
+  let expectedSig: string;
+  try {
+    expectedSig = crypto
+      .createHmac('sha256', getSecret())
+      .update(encoded)
+      .digest('base64url');
+  } catch {
+    return null; // env vars missing
+  }
 
   // Timing-safe comparison to prevent timing attacks
   if (signature.length !== expectedSig.length) return null;
@@ -104,8 +110,12 @@ export function createToken(username: string): { token: string; expiresAt: numbe
 }
 
 export function hashPassword(password: string): string {
+  const salt = process.env.SALT;
+  if (!salt) {
+    throw new Error('SALT environment variable is required');
+  }
   return crypto
     .createHash('sha256')
-    .update(password + (process.env.SALT || 'manila-watch-salt'))
+    .update(password + salt)
     .digest('hex');
 }

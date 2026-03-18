@@ -1,4 +1,5 @@
 // POST /api/watches/create — Admin: create new watch
+import crypto from 'crypto';
 import { getWatches, saveWatches } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
@@ -38,7 +39,7 @@ export default function handler(req: any, res: any) {
     }
 
     const watch = {
-      id: `watch-${Date.now()}`,
+      id: `watch-${crypto.randomUUID()}`,
       slug: data.slug,
       brand: data.brand,
       model: data.model,

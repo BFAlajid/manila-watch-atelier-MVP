@@ -124,7 +124,9 @@ app.put('/api/watches/:slug', requireAuth, async (req, res) => {
     const inventory = JSON.parse(data);
     const index = inventory.findIndex(w => w.slug === req.params.slug);
     if (index === -1) return res.status(404).json({ error: 'Watch not found' });
-    inventory[index] = { ...inventory[index], ...req.body, updated_at: new Date().toISOString() };
+    // Prevent overwriting server-controlled fields via raw body spread
+    const { id, created_at, slug, viewCount, inquiryCount, ...safeFields } = req.body;
+    inventory[index] = { ...inventory[index], ...safeFields, updated_at: new Date().toISOString() };
     await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
     res.json(inventory[index]);
   } catch (error) {
@@ -292,7 +294,12 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
     const inquiries = await getInquiries();
     const index = inquiries.findIndex(i => i.id === req.params.id);
     if (index === -1) return res.status(404).json({ error: 'Inquiry not found' });
-    inquiries[index] = { ...inquiries[index], ...req.body };
+    // Only allow updating status field — prevent arbitrary field injection
+    const { status } = req.body;
+    if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
+    }
+    inquiries[index] = { ...inquiries[index], status };
     await saveInquiries(inquiries);
     res.json({ success: true, inquiry: inquiries[index] });
   } catch (error) {
@@ -302,7 +309,7 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
 });
 
 // ─── POST /api/upload-image ──────────────────────────────────────────
-app.post('/api/upload-image', upload.array('images', 10), async (req, res) => {
+app.post('/api/upload-image', requireAuth, upload.array('images', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No images uploaded' });
@@ -318,8 +325,9 @@ app.post('/api/upload-image', upload.array('images', 10), async (req, res) => {
 
 // ─── HMAC Token Helpers ─────────────────────────────────────────────
 function getTokenSecret() {
-  const salt = process.env.SALT || 'manila-watch-salt';
-  const hash = process.env.ADMIN_PASSWORD_HASH || '';
+  const salt = process.env.SALT;
+  const hash = process.env.ADMIN_PASSWORD_HASH;
+  if (!salt || !hash) throw new Error('SALT and ADMIN_PASSWORD_HASH env vars required');
   return `${salt}:${hash}`;
 }
 
@@ -360,19 +368,28 @@ function requireAuth(req, res, next) {
 app.post('/api/auth', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+    const SALT = process.env.SALT;
 
-    if (!ADMIN_PASSWORD_HASH) {
-      return res.status(500).json({ error: 'ADMIN_PASSWORD_HASH not configured' });
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !SALT) {
+      console.error('Auth env vars missing');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
     }
 
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
 
-    const salt = process.env.SALT || 'manila-watch-salt';
-    const passwordHash = crypto.createHash('sha256').update(password + salt).digest('hex');
+    const passwordHash = crypto.createHash('sha256').update(password + SALT).digest('hex');
 
-    if (username === ADMIN_USERNAME && passwordHash === ADMIN_PASSWORD_HASH) {
+    // Timing-safe comparison
+    const userBuf = Buffer.from(String(username));
+    const adminBuf = Buffer.from(ADMIN_USERNAME);
+    const hashBuf = Buffer.from(passwordHash);
+    const expectedBuf = Buffer.from(ADMIN_PASSWORD_HASH);
+    const usernameMatch = userBuf.length === adminBuf.length && crypto.timingSafeEqual(userBuf, adminBuf);
+    const passwordMatch = hashBuf.length === expectedBuf.length && crypto.timingSafeEqual(hashBuf, expectedBuf);
+
+    if (usernameMatch && passwordMatch) {
       const { token, expiresAt } = createSignedToken(ADMIN_USERNAME);
       console.log(`Admin login successful: ${username}`);
       res.json({ success: true, token, expiresAt, username: ADMIN_USERNAME });

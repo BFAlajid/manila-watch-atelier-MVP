@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { isRateLimited } from './_lib/rate-limit.js';
 
 // Vercel serverless function for admin authentication
 export default async function handler(req, res) {
@@ -18,60 +19,85 @@ export default async function handler(req, res) {
   try {
     const { username, password } = req.body;
 
-    const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-    if (!ADMIN_PASSWORD_HASH) {
-      return res.status(500).json({ error: 'ADMIN_PASSWORD_HASH not configured in environment' });
+    const SALT = process.env.SALT;
+
+    // Fail hard if auth env vars are not configured — do not leak which ones
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !SALT) {
+      console.error('Auth env vars missing: ADMIN_USERNAME, ADMIN_PASSWORD_HASH, or SALT');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
     }
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    const passwordHash = hashPassword(password);
+    // Rate limit login attempts by IP: 5 attempts per 15 minutes
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+      || req.socket?.remoteAddress
+      || 'unknown';
+    if (isRateLimited(`login:${clientIP}`, 5, 15 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+    }
 
-    if (username === ADMIN_USERNAME && passwordHash === ADMIN_PASSWORD_HASH) {
-      const { token, expiresAt } = createSignedToken(ADMIN_USERNAME);
+    const passwordHash = hashPassword(password, SALT);
+
+    // Timing-safe comparison for both username and password hash
+    const usernameMatch = safeEqual(username, ADMIN_USERNAME);
+    const passwordMatch = safeEqual(passwordHash, ADMIN_PASSWORD_HASH);
+
+    if (usernameMatch && passwordMatch) {
+      const { token, expiresAt } = createSignedToken(ADMIN_USERNAME, SALT, ADMIN_PASSWORD_HASH);
 
       return res.status(200).json({
         success: true,
         token,
         expiresAt,
-        username: ADMIN_USERNAME
+        username: ADMIN_USERNAME,
       });
     } else {
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials'
+        error: 'Invalid credentials',
       });
     }
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('Authentication error');
     return res.status(500).json({ error: 'Authentication failed' });
   }
 }
 
-function hashPassword(password) {
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) {
+    // Compare against self to keep constant time, then return false
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function hashPassword(password, salt) {
   return crypto
     .createHash('sha256')
-    .update(password + (process.env.SALT || 'manila-watch-salt'))
+    .update(password + salt)
     .digest('hex');
 }
 
-function getSecret() {
-  const salt = process.env.SALT || 'manila-watch-salt';
-  const hash = process.env.ADMIN_PASSWORD_HASH || '';
+function getSecret(salt, hash) {
   return `${salt}:${hash}`;
 }
 
-function createSignedToken(username) {
+function createSignedToken(username, salt, hash) {
   const now = Date.now();
   const expiresAt = now + 24 * 60 * 60 * 1000;
 
   const payload = { sub: username, iat: now, exp: expiresAt };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', getSecret())
+    .createHmac('sha256', getSecret(salt, hash))
     .update(encoded)
     .digest('base64url');
 

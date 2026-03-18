@@ -740,7 +740,7 @@ export function AdminDashboard() {
       SOLD: 'bg-red-100 text-red-800',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-800'}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-900'}`}>
         {status}
       </span>
     );
@@ -754,7 +754,7 @@ export function AdminDashboard() {
       CLOSED: 'bg-green-100 text-green-800',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-800'}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-neutral-100 text-neutral-900'}`}>
         {status.replace('_', ' ')}
       </span>
     );
@@ -778,25 +778,26 @@ export function AdminDashboard() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)', color: 'var(--foreground)' }}>
       {/* Header */}
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
+      <header className="border-b sticky top-0 z-10" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-neutral-900">Manila Watch Atelier</h1>
-              <p className="text-sm text-neutral-600 mt-1">Admin Dashboard</p>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Manila Watch Atelier</h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--muted-foreground)' }}>Admin Dashboard</p>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-neutral-900">{user?.name}</p>
-                <p className="text-xs text-neutral-500">{user?.email}</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{user?.name}</p>
+                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{user?.email}</p>
               </div>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors hover:opacity-80"
+                style={{ color: 'var(--muted-foreground)' }}
               >
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
@@ -812,15 +813,16 @@ export function AdminDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200"
+            className="rounded-xl p-6 shadow-sm border"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Total Watches</p>
-                <p className="text-3xl font-bold text-neutral-900 mt-2">{totalWatches}</p>
+                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Total Watches</p>
+                <p className="text-3xl font-bold mt-2" style={{ color: 'var(--card-foreground)' }}>{totalWatches}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(59,130,246,0.15)' }}>
+                <Package className="w-6 h-6 text-blue-400" />
               </div>
             </div>
           </motion.div>
@@ -829,19 +831,20 @@ export function AdminDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200"
+            className="rounded-xl p-6 shadow-sm border"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Inventory Value</p>
-                <p className="text-3xl font-bold text-neutral-900 mt-2">
+                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Inventory Value</p>
+                <p className="text-3xl font-bold mt-2" style={{ color: 'var(--card-foreground)' }}>
                   {totalValue >= 1_000_000
                     ? `₱${(totalValue / 1_000_000).toFixed(1)}M`
                     : `₱${totalValue.toLocaleString()}`}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(34,197,94,0.15)' }}>
+                <DollarSign className="w-6 h-6 text-green-400" />
               </div>
             </div>
           </motion.div>
@@ -850,15 +853,16 @@ export function AdminDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200"
+            className="rounded-xl p-6 shadow-sm border"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">New Inquiries</p>
-                <p className="text-3xl font-bold text-neutral-900 mt-2">{newInquiriesCount}</p>
+                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>New Inquiries</p>
+                <p className="text-3xl font-bold mt-2" style={{ color: 'var(--card-foreground)' }}>{newInquiriesCount}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(168,85,247,0.15)' }}>
+                <MessageSquare className="w-6 h-6 text-purple-400" />
               </div>
             </div>
           </motion.div>
@@ -867,38 +871,40 @@ export function AdminDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200"
+            className="rounded-xl p-6 shadow-sm border"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600">Most Viewed</p>
-                <p className="text-lg font-bold text-neutral-900 mt-1 truncate max-w-[160px]" title={mostViewedWatch?.name}>
+                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Most Viewed</p>
+                <p className="text-lg font-bold mt-1 truncate max-w-[160px]" style={{ color: 'var(--card-foreground)' }} title={mostViewedWatch?.name}>
                   {mostViewedWatch?.name ?? '—'}
                 </p>
                 {mostViewedWatch && (
-                  <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1">
+                  <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'var(--muted-foreground)' }}>
                     <Eye className="w-3 h-3" />
                     {mostViewedWatch.viewCount?.toLocaleString() ?? 0} views
                   </p>
                 )}
               </div>
-              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-amber-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(212,175,55,0.15)' }}>
+                <TrendingUp className="w-6 h-6 text-[#D4AF37]" />
               </div>
             </div>
           </motion.div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 shadow-sm border border-neutral-200 w-fit">
+        <div className="flex gap-1 mb-6 rounded-xl p-1 shadow-sm border w-fit" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
           <button
             type="button"
             onClick={() => setActiveTab('watches')}
             className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'watches'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                ? 'bg-[#D4AF37] text-black'
+                : 'hover:opacity-80'
             }`}
+            style={activeTab !== 'watches' ? { color: 'var(--muted-foreground)' } : {}}
           >
             <span className="flex items-center gap-2">
               <Package className="w-4 h-4" />
@@ -910,9 +916,10 @@ export function AdminDashboard() {
             onClick={() => setActiveTab('inquiries')}
             className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'inquiries'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                ? 'bg-[#D4AF37] text-black'
+                : 'hover:opacity-80'
             }`}
+            style={activeTab !== 'inquiries' ? { color: 'var(--muted-foreground)' } : {}}
           >
             <span className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
@@ -929,9 +936,10 @@ export function AdminDashboard() {
             onClick={() => setActiveTab('analytics')}
             className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'analytics'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                ? 'bg-[#D4AF37] text-black'
+                : 'hover:opacity-80'
             }`}
+            style={activeTab !== 'analytics' ? { color: 'var(--muted-foreground)' } : {}}
           >
             <span className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -947,50 +955,50 @@ export function AdminDashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {/* Total Views Card */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+              <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-neutral-600">Total Views</h3>
+                  <h3 className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Total Views</h3>
                   <Eye className="w-5 h-5 text-neutral-400" />
                 </div>
                 <p className="text-3xl font-bold text-neutral-900">{totalViews.toLocaleString()}</p>
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   Across all watch pages
                 </p>
               </div>
 
               {/* Inquiry Conversion Rate */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+              <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-neutral-600">Inquiry Conversion Rate</h3>
+                  <h3 className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Inquiry Conversion Rate</h3>
                   <TrendingUp className="w-5 h-5 text-neutral-400" />
                 </div>
                 <p className="text-3xl font-bold text-neutral-900">{conversionRate}%</p>
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {inquiries.length} inquiries / {totalViews} views
                 </p>
               </div>
 
               {/* Total Inquiries */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+              <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-neutral-600">Total Inquiries</h3>
+                  <h3 className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Total Inquiries</h3>
                   <MessageSquare className="w-5 h-5 text-neutral-400" />
                 </div>
                 <p className="text-3xl font-bold text-neutral-900">{inquiries.length}</p>
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {newInquiriesCount} new, {inquiries.filter((i) => i.status === 'CONTACTED').length} contacted
                 </p>
               </div>
             </div>
 
             {/* Top Viewed Watches - Inline Bar Chart */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+            <div className="rounded-xl p-6 shadow-sm border mb-6" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
               <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-[#D4AF37]" />
                 Top Viewed Watches
               </h3>
               {topViewedWatches.length === 0 ? (
-                <p className="text-sm text-neutral-500">No view data available yet.</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">No view data available yet.</p>
               ) : (
                 <div className="space-y-3">
                   {topViewedWatches.map((item, idx) => {
@@ -1006,11 +1014,11 @@ export function AdminDashboard() {
                             <span className="text-sm font-medium text-neutral-900 truncate mr-2">
                               {item.name}
                             </span>
-                            <span className="text-xs text-neutral-500 flex-shrink-0">
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0">
                               {item.count} views
                             </span>
                           </div>
-                          <div className="w-full bg-neutral-100 rounded-full h-2.5">
+                          <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-2.5">
                             <div
                               className="h-2.5 rounded-full transition-all duration-500"
                               style={{
@@ -1028,7 +1036,7 @@ export function AdminDashboard() {
             </div>
 
             {/* Inquiries Over Time - Last 7 Days */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+            <div className="rounded-xl p-6 shadow-sm border" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
               <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-[#D4AF37]" />
                 Inquiries - Last 7 Days
@@ -1040,7 +1048,7 @@ export function AdminDashboard() {
                     : 4;
                   return (
                     <div key={idx} className="flex-1 flex flex-col items-center gap-1">
-                      <span className="text-xs font-medium text-neutral-700">
+                      <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
                         {day.count}
                       </span>
                       <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
@@ -1052,7 +1060,7 @@ export function AdminDashboard() {
                           }}
                         />
                       </div>
-                      <span className="text-xs text-neutral-500 whitespace-nowrap">
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
                         {day.date}
                       </span>
                     </div>
@@ -1069,7 +1077,7 @@ export function AdminDashboard() {
         {activeTab === 'watches' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             {/* Filters and Actions */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+            <div className="rounded-xl p-6 shadow-sm border mb-6" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
               <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                 <div className="flex-1 flex gap-4 flex-wrap">
                   {/* Search */}
@@ -1080,7 +1088,7 @@ export function AdminDashboard() {
                       placeholder="Search watches..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      className="w-full pl-11 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400 focus:border-transparent"
                     />
                   </div>
 
@@ -1089,7 +1097,7 @@ export function AdminDashboard() {
                     value={filterBrand}
                     onChange={(e) => setFilterBrand(e.target.value)}
                     aria-label="Filter by brand"
-                    className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    className="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400 focus:border-transparent"
                   >
                     {brands.map((brand) => (
                       <option key={brand} value={brand}>
@@ -1103,7 +1111,7 @@ export function AdminDashboard() {
                     value={filterTier}
                     onChange={(e) => setFilterTier(e.target.value)}
                     aria-label="Filter by tier"
-                    className="px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    className="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400 focus:border-transparent"
                   >
                     {tiers.map((tier) => (
                       <option key={tier} value={tier}>
@@ -1117,7 +1125,7 @@ export function AdminDashboard() {
                   <button
                     type="button"
                     onClick={() => exportWatchesCSV(filteredWatches)}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
                     title="Export watches as CSV"
                   >
                     <Download className="w-4 h-4" />
@@ -1126,7 +1134,7 @@ export function AdminDashboard() {
                   <button
                     type="button"
                     onClick={fetchWatches}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
                     title="Refresh"
                   >
                     <RefreshCw className={`w-4 h-4 ${watchesLoading ? 'animate-spin' : ''}`} />
@@ -1140,7 +1148,7 @@ export function AdminDashboard() {
                       setAddError(null);
                       setShowAddModal(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors whitespace-nowrap"
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors whitespace-nowrap"
                   >
                     <Plus className="w-4 h-4" />
                     Add Watch
@@ -1217,18 +1225,18 @@ export function AdminDashboard() {
 
             {/* Loading state */}
             {watchesLoading && !watchesError && (
-              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-12 text-center">
+              <div className="rounded-xl shadow-sm border p-12 text-center" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <RefreshCw className="w-8 h-8 text-neutral-400 mx-auto mb-3 animate-spin" />
-                <p className="text-neutral-600">Loading watches...</p>
+                <p className="text-neutral-600 dark:text-neutral-400">Loading watches...</p>
               </div>
             )}
 
             {/* Watches Table */}
             {!watchesLoading && !watchesError && (
-              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+              <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-neutral-50 border-b border-neutral-200">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                       <tr>
                         <th className="px-4 py-3 text-left">
                           <button
@@ -1267,15 +1275,15 @@ export function AdminDashboard() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-200">
+                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                       {filteredWatches.map((watch, index) => (
                         <motion.tr
                           key={watch.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: index * 0.03 }}
-                          className={`hover:bg-neutral-50 transition-colors ${
-                            selectedWatches.has(watch.id) ? 'bg-blue-50/50' : ''
+                          className={`hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${
+                            selectedWatches.has(watch.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                           }`}
                         >
                           <td className="px-4 py-4">
@@ -1300,12 +1308,12 @@ export function AdminDashboard() {
                               />
                               <div>
                                 <p className="font-medium text-neutral-900">{watch.name}</p>
-                                <p className="text-sm text-neutral-500">{watch.model}</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">{watch.model}</p>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-neutral-900">{watch.brand}</td>
-                          <td className="px-6 py-4 text-sm text-neutral-600">{watch.reference}</td>
+                          <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">{watch.reference}</td>
                           <td className="px-6 py-4 text-sm font-medium text-neutral-900">
                             ₱{(watch.pricePHP ?? watch.price_php ?? 0).toLocaleString()}
                           </td>
@@ -1317,7 +1325,7 @@ export function AdminDashboard() {
                                 value={watch.status}
                                 onChange={(e) => handleWatchStatusChange(watch.slug, e.target.value)}
                                 aria-label={`Change status for ${watch.name}`}
-                                className="text-xs border border-neutral-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 focus:border-transparent bg-white"
+                                className="text-xs border border-neutral-300 dark:border-neutral-600 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400 focus:border-transparent bg-white dark:bg-neutral-800 text-neutral-900"
                               >
                                 <option value="AVAILABLE">AVAILABLE</option>
                                 <option value="RESERVED">RESERVED</option>
@@ -1354,8 +1362,8 @@ export function AdminDashboard() {
                 {filteredWatches.length === 0 && (
                   <div className="text-center py-12">
                     <Package className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-                    <p className="text-neutral-600">No watches found</p>
-                    <p className="text-sm text-neutral-500 mt-1">Try adjusting your filters</p>
+                    <p className="text-neutral-600 dark:text-neutral-400">No watches found</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-1">Try adjusting your filters</p>
                   </div>
                 )}
               </div>
@@ -1369,7 +1377,7 @@ export function AdminDashboard() {
         {activeTab === 'inquiries' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             {/* Filters */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 mb-6">
+            <div className="rounded-xl p-6 shadow-sm border mb-6" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div className="flex gap-2 flex-wrap">
                   {(['ALL', 'NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED'] as InquiryFilter[]).map((status) => (
@@ -1379,8 +1387,8 @@ export function AdminDashboard() {
                       onClick={() => setInquiryFilter(status)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                         inquiryFilter === status
-                          ? 'bg-neutral-900 text-white'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                          ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
+                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                       }`}
                     >
                       {status.replace('_', ' ')}
@@ -1397,7 +1405,7 @@ export function AdminDashboard() {
                   <button
                     type="button"
                     onClick={() => exportInquiriesCSV(filteredInquiries)}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
                     title="Export inquiries as CSV"
                   >
                     <Download className="w-4 h-4" />
@@ -1406,7 +1414,7 @@ export function AdminDashboard() {
                   <button
                     type="button"
                     onClick={fetchInquiries}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg border border-neutral-300 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
                     title="Refresh"
                   >
                     <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
@@ -1429,18 +1437,18 @@ export function AdminDashboard() {
 
             {/* Loading state */}
             {inquiriesLoading && !inquiriesError && (
-              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-12 text-center">
+              <div className="rounded-xl shadow-sm border p-12 text-center" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <RefreshCw className="w-8 h-8 text-neutral-400 mx-auto mb-3 animate-spin" />
-                <p className="text-neutral-600">Loading inquiries...</p>
+                <p className="text-neutral-600 dark:text-neutral-400">Loading inquiries...</p>
               </div>
             )}
 
             {/* Inquiries Table */}
             {!inquiriesLoading && !inquiriesError && (
-              <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+              <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-neutral-50 border-b border-neutral-200">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Name
@@ -1465,23 +1473,23 @@ export function AdminDashboard() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-200">
+                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                       {filteredInquiries.map((inquiry, index) => (
                         <React.Fragment key={inquiry.id}>
                           <motion.tr
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: index * 0.03 }}
-                            className="hover:bg-neutral-50 transition-colors"
+                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                           >
                             <td className="px-6 py-4 text-sm font-medium text-neutral-900">{inquiry.name}</td>
-                            <td className="px-6 py-4 text-sm text-neutral-600">
-                              <a href={`mailto:${inquiry.email}`} className="hover:text-blue-600 flex items-center gap-1.5">
+                            <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">
+                              <a href={`mailto:${inquiry.email}`} className="hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5">
                                 <Mail className="w-3.5 h-3.5" />
                                 {inquiry.email}
                               </a>
                             </td>
-                            <td className="px-6 py-4 text-sm text-neutral-600">
+                            <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">
                               {inquiry.phone ? (
                                 <span className="flex items-center gap-1.5">
                                   <Phone className="w-3.5 h-3.5" />
@@ -1507,7 +1515,7 @@ export function AdminDashboard() {
                                   value={inquiry.status}
                                   onChange={(e) => handleInquiryStatusChange(inquiry.id, e.target.value)}
                                   aria-label={`Change status for inquiry from ${inquiry.name}`}
-                                  className="text-xs border border-neutral-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 focus:border-transparent bg-white"
+                                  className="text-xs border border-neutral-300 dark:border-neutral-600 rounded px-1.5 py-1 focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400 focus:border-transparent bg-white dark:bg-neutral-800 text-neutral-900"
                                 >
                                   <option value="NEW">NEW</option>
                                   <option value="CONTACTED">CONTACTED</option>
@@ -1516,7 +1524,7 @@ export function AdminDashboard() {
                                 </select>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm text-neutral-600">
+                            <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">
                               <span className="flex items-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5" />
                                 {new Date(inquiry.createdAt).toLocaleDateString('en-PH', {
@@ -1532,7 +1540,7 @@ export function AdminDashboard() {
                                 onClick={() =>
                                   setExpandedInquiry(expandedInquiry === inquiry.id ? null : inquiry.id)
                                 }
-                                className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                                className="p-2 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                                 title="Toggle details"
                               >
                                 {expandedInquiry === inquiry.id ? (
@@ -1552,16 +1560,16 @@ export function AdminDashboard() {
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="bg-neutral-50"
+                                className="bg-neutral-50 dark:bg-neutral-800/50"
                               >
                                 <td colSpan={7} className="px-6 py-4">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Message */}
                                     <div>
-                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                      <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
                                         Message
                                       </h4>
-                                      <p className="text-sm text-neutral-700 whitespace-pre-wrap bg-white p-4 rounded-lg border border-neutral-200">
+                                      <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap p-4 rounded-lg border" style={{ backgroundColor: 'var(--secondary)', borderColor: 'var(--border)' }}>
                                         {inquiry.message || 'No message provided.'}
                                       </p>
                                     </div>
@@ -1569,22 +1577,22 @@ export function AdminDashboard() {
                                     {/* Watch details */}
                                     {inquiry.watch && (
                                       <div>
-                                        <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                        <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
                                           Watch Details
                                         </h4>
-                                        <div className="flex gap-4 bg-white p-4 rounded-lg border border-neutral-200">
+                                        <div className="flex gap-4 p-4 rounded-lg border" style={{ backgroundColor: 'var(--secondary)', borderColor: 'var(--border)' }}>
                                           {inquiry.watch.images?.[0] && (
                                             <img
                                               src={inquiry.watch.images[0]}
                                               alt={`${inquiry.watch.brand} ${inquiry.watch.model}`}
-                                              className="w-20 h-20 object-cover rounded-lg bg-neutral-100"
+                                              className="w-20 h-20 object-cover rounded-lg bg-neutral-100 dark:bg-neutral-700"
                                             />
                                           )}
                                           <div>
                                             <p className="font-medium text-neutral-900">
                                               {inquiry.watch.brand} {inquiry.watch.model}
                                             </p>
-                                            <p className="text-sm text-neutral-500 mt-0.5">
+                                            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
                                               Ref: {inquiry.watch.reference}
                                             </p>
                                             <p className="text-sm font-medium text-neutral-900 mt-1">
@@ -1597,12 +1605,12 @@ export function AdminDashboard() {
 
                                     {/* CRM: Last Contacted */}
                                     <div>
-                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                      <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
                                         Last Contacted
                                       </h4>
-                                      <div className="bg-white p-4 rounded-lg border border-neutral-200">
+                                      <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--secondary)', borderColor: 'var(--border)' }}>
                                         {inquiry.lastContactedAt ? (
-                                          <p className="text-sm text-neutral-700 flex items-center gap-1.5">
+                                          <p className="text-sm text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
                                             <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
                                             {new Date(inquiry.lastContactedAt).toLocaleString('en-PH', {
                                               year: 'numeric',
@@ -1625,7 +1633,7 @@ export function AdminDashboard() {
                                               className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                                                 inquiry.status === s
                                                   ? 'bg-[#D4AF37] text-white'
-                                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
                                               }`}
                                             >
                                               {s.replace('_', ' ')}
@@ -1637,7 +1645,7 @@ export function AdminDashboard() {
 
                                     {/* CRM: Notes */}
                                     <div>
-                                      <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                                      <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
                                         CRM Notes
                                       </h4>
                                       <textarea
@@ -1645,7 +1653,7 @@ export function AdminDashboard() {
                                         onChange={(e) => handleCrmNoteChange(inquiry.id, e.target.value)}
                                         rows={4}
                                         placeholder="Add notes about this customer..."
-                                        className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-vertical bg-white"
+                                        className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-vertical bg-white dark:bg-neutral-800 text-neutral-900 placeholder:text-neutral-400"
                                       />
                                       <p className="text-xs text-neutral-400 mt-1">
                                         Notes are saved automatically to your browser
@@ -1687,12 +1695,13 @@ export function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              className="rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              style={{ backgroundColor: 'var(--card)', color: 'var(--card-foreground)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-white border-b border-neutral-200 px-6 py-4 rounded-t-2xl z-10">
+              <div className="sticky top-0 border-b px-6 py-4 rounded-t-2xl z-10" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-neutral-900">Edit Watch</h2>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--card-foreground)' }}>Edit Watch</h2>
                   <button
                     type="button"
                     onClick={() => setEditingWatch(null)}
@@ -2000,12 +2009,13 @@ export function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              className="rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+              style={{ backgroundColor: 'var(--card)', color: 'var(--card-foreground)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-white border-b border-neutral-200 px-6 py-4 rounded-t-2xl z-10">
+              <div className="sticky top-0 border-b px-6 py-4 rounded-t-2xl z-10" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-neutral-900">Add New Watch</h2>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--card-foreground)' }}>Add New Watch</h2>
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
