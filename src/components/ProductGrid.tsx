@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { FavoriteButton } from './FavoriteButton';
 import { ShareButton } from './ShareButton';
 import { ComparisonButton } from './ComparisonButton';
-import { ViewCounter } from './ViewCounter';
 import { LowStockBadge } from './LowStockBadge';
 import { useWatch } from '../context/WatchContext';
 
@@ -262,8 +261,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
                   {formatPrice(watch.price_php)}
                 </p>
                 
-                <div className="flex items-center justify-between mb-4">
-                  <ViewCounter watchId={watch.id} />
+                <div className="flex items-center justify-end mb-4">
                   <span className="text-sm text-neutral-500 capitalize">
                     {watch.condition.replace('_', ' ')}
                   </span>

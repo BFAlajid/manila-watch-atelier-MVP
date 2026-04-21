@@ -3,14 +3,20 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AnimatePresence, motion } from 'motion/react';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'sonner';
+import { Analytics } from '@vercel/analytics/react';
 import { WatchProvider } from './context/WatchContext';
 import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
 import { ScrollProgress } from './components/ScrollProgress';
 import { ComparisonBar } from './components/ComparisonBar';
 import { WhatsAppButton } from './components/WhatsAppButton';
-import { ChatWidget } from './components/ChatWidget';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
+
+// ChatWidget is not needed for initial render — most visitors never open it.
+// Lazy-load it so the 530-line widget + motion + icons don't ship in the
+// critical bundle.
+const ChatWidget = lazy(() =>
+  import('./components/ChatWidget').then((m) => ({ default: m.ChatWidget }))
+);
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -83,16 +89,17 @@ function AnimatedRoutes() {
 function App() {
   return (
     <HelmetProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <WatchProvider>
-            <Router>
-              <div className="min-h-screen bg-black dark:bg-black light:bg-white transition-colors">
-                <ScrollProgress />
-                <AnimatedRoutes />
+      <AuthProvider>
+        <WatchProvider>
+          <Router>
+            <div className="min-h-screen bg-black">
+              <ScrollProgress />
+              <AnimatedRoutes />
 
               <ComparisonBar />
-              <ChatWidget />
+              <Suspense fallback={null}>
+                <ChatWidget />
+              </Suspense>
               <WhatsAppButton position="fixed" />
 
               <Toaster
@@ -106,11 +113,11 @@ function App() {
                   },
                 }}
               />
-              </div>
-            </Router>
-          </WatchProvider>
-        </AuthProvider>
-      </ThemeProvider>
+              <Analytics />
+            </div>
+          </Router>
+        </WatchProvider>
+      </AuthProvider>
     </HelmetProvider>
   );
 }
