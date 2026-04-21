@@ -169,13 +169,29 @@ export function ChatWidget() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const assistantId = `assistant-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { id: assistantId, role: 'assistant', content: '', timestamp: new Date() },
+    ]);
     setInput('');
     setIsLoading(true);
 
-    const apiMessages = [...messages.filter(m => m.id !== 'welcome'), userMessage].map(m => ({
-      role: m.role, content: m.content,
+    const apiMessages = [...messages.filter((m) => m.id !== 'welcome'), userMessage].map((m) => ({
+      role: m.role,
+      content: m.content,
     }));
+
+    const appendChunk = (chunk: string) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + chunk } : m))
+      );
+    };
+
+    const replaceContent = (content: string) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content } : m)));
+    };
 
     try {
       const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -189,24 +205,53 @@ export function ChatWidget() {
         throw new Error(data.error || `Server error (${response.status})`);
       }
 
-      const data = await response.json();
-      if (data.sessionId && !sessionId) setSessionId(data.sessionId);
+      // SSE parser — accumulate chunks, split on blank-line delimiter.
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Streaming not supported by this browser.');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let sawText = false;
 
-      setMessages(prev => [...prev, {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: data.reply || "I couldn't process that. Could you try rephrasing?",
-        timestamp: new Date(),
-      }]);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let delimIdx: number;
+        while ((delimIdx = buffer.indexOf('\n\n')) !== -1) {
+          const rawEvent = buffer.slice(0, delimIdx);
+          buffer = buffer.slice(delimIdx + 2);
+
+          let eventName = 'message';
+          let dataLine = '';
+          for (const line of rawEvent.split('\n')) {
+            if (line.startsWith('event:')) eventName = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+          }
+          if (!dataLine) continue;
+          let payload: any = {};
+          try { payload = JSON.parse(dataLine); } catch { continue; }
+
+          if (eventName === 'text' && typeof payload.chunk === 'string') {
+            sawText = true;
+            appendChunk(payload.chunk);
+          } else if (eventName === 'done' && payload.sessionId && !sessionId) {
+            setSessionId(payload.sessionId);
+          } else if (eventName === 'error' && payload.error) {
+            throw new Error(payload.error);
+          }
+          // `tool` events are intentionally not surfaced to the user — they'd
+          // be noisy on a short conversation. The typing indicator is enough.
+        }
+      }
+
+      if (!sawText) {
+        replaceContent("I couldn't process that. Could you try rephrasing?");
+      }
     } catch (err: any) {
-      setMessages(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: err.message?.includes('not configured')
-          ? "Our chat is being set up. Reach Sherard directly via **WhatsApp** or **email**!"
-          : "Something went wrong. Try again, or reach Sherard via **WhatsApp**.",
-        timestamp: new Date(),
-      }]);
+      const fallback = err.message?.includes('not configured')
+        ? "Our chat is being set up. Reach Sherard directly via **WhatsApp** or **email**!"
+        : 'Something went wrong. Try again, or reach Sherard via **WhatsApp**.';
+      replaceContent(fallback);
     } finally {
       setIsLoading(false);
     }

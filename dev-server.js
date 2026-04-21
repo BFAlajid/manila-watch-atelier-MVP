@@ -25,7 +25,7 @@ import {
   updateInquiryStatus,
 } from './api/_lib/handlers/inquiries.ts';
 import { login } from './api/_lib/handlers/auth.ts';
-import { handleChat } from './api/_lib/handlers/chat.ts';
+import { streamChat } from './api/_lib/handlers/chat.ts';
 import { verifyAuth } from './api/_lib/auth.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -94,7 +94,16 @@ app.get('/api/inquiries', route(listInquiries));
 app.put('/api/inquiries/:id', route(updateInquiryStatus, (req) => ({ id: req.params.id })));
 
 app.post('/api/auth', route(login));
-app.post('/api/chat', route(handleChat));
+// /api/chat uses SSE — bypasses the JSON-body `route()` wrapper.
+app.post('/api/chat', async (req, res) => {
+  try {
+    await streamChat(toCtx(req), res);
+  } catch (err) {
+    console.error('[dev-server] /api/chat stream error:', err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    else try { res.end(); } catch {}
+  }
+});
 
 // ─── Upload (kept wrapper-owned — multipart parsing differs Express vs Vercel) ──
 const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
