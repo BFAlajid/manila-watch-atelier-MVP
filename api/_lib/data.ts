@@ -13,8 +13,13 @@ import { Redis } from '@upstash/redis';
 const INVENTORY_PATH = join(process.cwd(), 'src', 'data', 'inventory.json');
 const INQUIRIES_PATH = join(process.cwd(), 'src', 'data', 'inquiries.json');
 
-const WATCHES_KEY = 'watches:all';
-const INQUIRIES_KEY = 'inquiries:all';
+// Namespace every key with `mwa:` so this Redis instance can be shared
+// safely with other Vercel projects (e.g. portfolio) without collision.
+// Override via REDIS_KEY_PREFIX if you need a different prefix per environment
+// (e.g. REDIS_KEY_PREFIX=mwa-staging for a staging branch on the same store).
+const KEY_PREFIX = process.env.REDIS_KEY_PREFIX || 'mwa';
+const WATCHES_KEY = `${KEY_PREFIX}:watches:all`;
+const INQUIRIES_KEY = `${KEY_PREFIX}:inquiries:all`;
 
 // Vercel's marketplace rebranded "KV" to "Redis". Support both naming schemes:
 //   Legacy KV    : KV_REST_API_URL        + KV_REST_API_TOKEN

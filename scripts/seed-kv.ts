@@ -15,8 +15,9 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Redis } from '@upstash/redis';
 
-const WATCHES_KEY = 'watches:all';
-const INQUIRIES_KEY = 'inquiries:all';
+const KEY_PREFIX = process.env.REDIS_KEY_PREFIX || 'mwa';
+const WATCHES_KEY = `${KEY_PREFIX}:watches:all`;
+const INQUIRIES_KEY = `${KEY_PREFIX}:inquiries:all`;
 
 const INVENTORY_PATH = join(process.cwd(), 'src', 'data', 'inventory.json');
 
