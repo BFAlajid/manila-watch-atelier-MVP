@@ -367,24 +367,31 @@ export function AdminDashboard() {
   };
 
   // -------------------------------------------------------------------------
-  // Delete watch
+  // Delete watch — implemented as a soft-delete (PUT status=SOLD) so the
+  // piece stays in the archive for sales history. Uses PUT instead of DELETE
+  // to avoid CDN / proxy / adblock blockers that reject DELETE verbs, and
+  // because the server handler does the identical state change either way.
   // -------------------------------------------------------------------------
   const handleDelete = async (id: string, slug: string) => {
-    if (!confirm('Are you sure you want to delete this watch?')) return;
+    if (!confirm('Mark this watch as SOLD? It will move to the archive — history is preserved.')) return;
     try {
       const res = await fetch(`${API_BASE_URL}/watches/${slug}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'SOLD' }),
       });
-      if (!res.ok) throw new Error('Delete failed');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
       setWatches((prev) => prev.filter((w) => w.id !== id));
       setSelectedWatches((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
-    } catch {
-      alert('Failed to delete watch. Please try again.');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to mark watch as sold. Please try again.');
     }
   };
 
@@ -441,19 +448,24 @@ export function AdminDashboard() {
 
   const handleBulkDelete = async () => {
     if (selectedWatches.size === 0) return;
-    if (!confirm(`Delete ${selectedWatches.size} watch(es)? This cannot be undone.`)) return;
+    if (!confirm(`Mark ${selectedWatches.size} watch(es) as SOLD? They move to the archive — history is preserved.`)) return;
 
     setBulkActionLoading(true);
     try {
       const selectedArr = watches.filter((w) => selectedWatches.has(w.id));
-      await Promise.all(
+      const results = await Promise.all(
         selectedArr.map((w) =>
           fetch(`${API_BASE_URL}/watches/${w.slug}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders(),
+            method: 'PUT',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'SOLD' }),
           })
         )
       );
+      const failed = results.filter((r) => !r.ok).length;
+      if (failed > 0) {
+        alert(`${failed} of ${selectedArr.length} could not be marked as sold. Refresh and retry those.`);
+      }
       setWatches((prev) => prev.filter((w) => !selectedWatches.has(w.id)));
       setSelectedWatches(new Set());
     } catch {
