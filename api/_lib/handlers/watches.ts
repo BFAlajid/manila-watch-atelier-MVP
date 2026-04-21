@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import type { Handler } from './types.js';
 import { getWatches, saveWatches } from '../data.js';
 import { watchCreateSchema, watchUpdateSchema } from '../validation.js';
+import { isRateLimited } from '../rate-limit.js';
+import { auditAdminAction } from '../audit.js';
 
 function pickString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -67,7 +69,15 @@ export const listWatches: Handler = async (ctx) => {
   else if (sort === 'popular') watches.sort((a, b) => b.viewCount - a.viewCount);
   else watches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  return { status: 200, body: watches };
+  return {
+    status: 200,
+    body: watches,
+    // Edge-cache the public catalog for 60s and serve stale for up to 5min
+    // while the cache revalidates. Drops origin load ~60x during traffic bursts.
+    headers: {
+      'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300',
+    },
+  };
 };
 
 // ─── Public: GET /api/watches/:slug ───────────────────────────────────────
@@ -147,11 +157,22 @@ export const createWatch: Handler = async (ctx) => {
   };
   watches.push(watch);
 
+  let saveOk = true;
   try {
     await saveWatches(watches);
   } catch (err: any) {
+    saveOk = false;
     console.error('[watches/create] saveWatches failed:', err?.message || err);
   }
+
+  auditAdminAction({
+    actor: ctx.auth.username || 'admin',
+    action: 'watch.create',
+    resource: `watch:${watch.slug}`,
+    ip: ctx.clientIP,
+    ok: saveOk,
+    details: { id: watch.id, brand: watch.brand, model: watch.model, pricePHP: watch.pricePHP },
+  });
 
   return { status: 201, body: { success: true, watch } };
 };
@@ -182,11 +203,22 @@ export const updateWatch: Handler = async (ctx) => {
     updated_at: new Date().toISOString(),
   };
 
+  let saveOk = true;
   try {
     await saveWatches(watches);
   } catch (err: any) {
+    saveOk = false;
     console.error('[watches PUT] saveWatches failed:', err?.message || err);
   }
+
+  auditAdminAction({
+    actor: ctx.auth.username || 'admin',
+    action: 'watch.update',
+    resource: `watch:${slug}`,
+    ip: ctx.clientIP,
+    ok: saveOk,
+    details: { changedFields: Object.keys(parsed.data) },
+  });
 
   return { status: 200, body: { success: true, watch: watches[index] } };
 };
@@ -205,11 +237,21 @@ export const deleteWatch: Handler = async (ctx) => {
 
   watches[index].status = 'SOLD';
 
+  let saveOk = true;
   try {
     await saveWatches(watches);
   } catch (err: any) {
+    saveOk = false;
     console.error('[watches DELETE] saveWatches failed:', err?.message || err);
   }
+
+  auditAdminAction({
+    actor: ctx.auth.username || 'admin',
+    action: 'watch.softDelete',
+    resource: `watch:${slug}`,
+    ip: ctx.clientIP,
+    ok: saveOk,
+  });
 
   return { status: 200, body: { success: true, status: 'SOLD' } };
 };

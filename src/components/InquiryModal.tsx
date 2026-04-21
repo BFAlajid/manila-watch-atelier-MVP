@@ -20,7 +20,8 @@ const inputClass =
   'w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-600 focus:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900';
 
 export function InquiryModal({ isOpen, onClose, watchName, watchReference, watchPrice, watchId }: InquiryModalProps) {
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
+  // `website` is a honeypot field — humans never touch it, bots fill every field.
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '', website: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +38,7 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
           phone: formData.phone || undefined,
           message: formData.message || `Interested in ${watchName} (Ref: ${watchReference}) at ${watchPrice}`,
           watchId: watchId || undefined,
+          website: formData.website, // honeypot — empty for humans
         }),
       });
 
@@ -47,7 +49,7 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
 
       toast.success('Inquiry sent! Sherard will contact you within 24 hours.');
       onClose();
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', message: '', website: '' });
     } catch (error: any) {
       toast.error(error.message || 'Failed to send inquiry. Please try again.');
     } finally {
@@ -72,7 +74,22 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
         {watchName} <span className="text-[#D4AF37]">{watchPrice}</span>
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+        {/* Honeypot — hidden from humans, visible to dumb bots that scrape forms. */}
+        <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}>
+          <label>
+            Leave this field blank
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={formData.website}
+              onChange={handleChange}
+            />
+          </label>
+        </div>
+
         <Field label="Name" name="name" required>
           <input type="text" value={formData.name} onChange={handleChange} placeholder="Your full name" className={inputClass} />
         </Field>

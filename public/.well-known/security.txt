@@ -1,0 +1,5 @@
+Contact: mailto:sherard@manilawatch.com
+Expires: 2027-04-21T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://manilawatch.com/.well-known/security.txt
+Policy: https://manilawatch.com/security-policy

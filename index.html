@@ -31,7 +31,6 @@
         fbq('track', 'PageView');
       </script>
       -->
-      <style>:root { --font-serif: 'Playfair Display', serif; }</style>
       <link rel="manifest" href="/manifest.json" />
       <meta name="theme-color" content="#D4AF37" />
       <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -42,13 +41,7 @@
     <body>
       <div id="root"></div>
       <script type="module" src="/src/main.tsx"></script>
-      <script>
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
-          });
-        }
-      </script>
+      <script src="/sw-register.js" defer></script>
     </body>
   </html>
   

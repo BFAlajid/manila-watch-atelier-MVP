@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/auth
+Disallow: /api/inquiries
+Disallow: /api/watches/create
+Allow: /
+
+Sitemap: https://manilawatch.com/api/sitemap.xml

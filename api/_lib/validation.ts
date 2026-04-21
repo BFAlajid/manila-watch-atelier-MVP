@@ -7,6 +7,11 @@ export const inquirySchema = z.object({
   phone: z.string().max(30).optional().nullable(),
   message: z.string().max(2000).optional().default(''),
   watchId: z.string().max(100).optional().nullable(),
+  // Honeypot: must be empty. Humans never fill it (it's hidden via CSS +
+  // aria-hidden + tabindex=-1); bots that scrape forms and fill every
+  // field will get caught. Server silently accepts the 200 response but
+  // drops the payload without writing anywhere.
+  website: z.string().max(0).optional().default(''),
 });
 
 export const watchCreateSchema = z.object({
