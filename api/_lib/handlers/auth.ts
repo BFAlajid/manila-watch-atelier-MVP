@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import type { Handler } from './types.js';
 import { isRateLimited } from '../rate-limit.js';
-import { createToken } from '../auth.js';
+import { createToken, verifyPassword } from '../auth.js';
 
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(String(a));
@@ -13,10 +13,6 @@ function safeEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-function hashPassword(password: string, salt: string): string {
-  return crypto.createHash('sha256').update(password + salt).digest('hex');
-}
-
 export const login: Handler = async (ctx) => {
   if (ctx.method !== 'POST') return { status: 405, body: { error: 'Method not allowed' } };
 
@@ -25,9 +21,8 @@ export const login: Handler = async (ctx) => {
 
   const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
   const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-  const SALT = process.env.SALT;
 
-  if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !SALT) {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
     console.error('[auth] auth config incomplete');
     return { status: 500, body: { error: 'Authentication service unavailable' } };
   }
@@ -41,9 +36,10 @@ export const login: Handler = async (ctx) => {
     return { status: 429, body: { error: 'Too many login attempts. Please try again later.' } };
   }
 
-  const passwordHash = hashPassword(password, SALT);
+  // verifyPassword supports both the new scrypt format and the legacy
+  // SHA-256+SALT format during the transition.
   const usernameMatch = safeEqual(username, ADMIN_USERNAME);
-  const passwordMatch = safeEqual(passwordHash, ADMIN_PASSWORD_HASH);
+  const passwordMatch = usernameMatch && verifyPassword(password, ADMIN_PASSWORD_HASH);
 
   if (!(usernameMatch && passwordMatch)) {
     return { status: 401, body: { success: false, error: 'Invalid credentials' } };

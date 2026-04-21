@@ -49,6 +49,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "seed:kv": "tsx scripts/seed-kv.ts"
+    "seed:kv": "tsx scripts/seed-kv.ts",
+    "hash:password": "tsx scripts/hash-password.ts"
   }
 }

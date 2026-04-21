@@ -59,16 +59,16 @@ export function Hero() {
             ROLEX • PATEK PHILIPPE • AUDEMARS PIGUET • CARTIER
           </motion.p>
           
-          <motion.h2
+          <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="text-5xl sm:text-6xl lg:text-7xl mb-6 leading-tight font-serif"
+            className="text-5xl sm:text-6xl lg:text-7xl mb-6 leading-tight font-serif motion-reduce:transition-none"
           >
             Ultra-Luxury
             <br />
             <span className="text-[#D4AF37]">Timepieces</span>
-          </motion.h2>
+          </motion.h1>
           
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -86,12 +86,10 @@ export function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.8 }}
-              whileHover={{ scale: 1.05, x: 5 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-[#D4AF37] text-black px-8 py-3 rounded-lg inline-flex items-center space-x-2 hover:bg-[#F4E5B8] transition-all group"
+              className="bg-[#D4AF37] text-black px-8 py-3 rounded-lg inline-flex items-center gap-2 hover:bg-[#F4E5B8] motion-safe:transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-black group"
             >
               <span>Explore Collection</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-4 h-4 motion-safe:transition-transform motion-safe:group-hover:translate-x-1" aria-hidden="true" />
             </motion.button>
           </Link>
         </div>

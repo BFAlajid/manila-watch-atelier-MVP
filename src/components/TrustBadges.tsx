@@ -39,8 +39,8 @@ export function TrustBadges() {
             className="text-center"
           >
             <motion.div
-              whileHover={{ scale: 1.1 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#D4AF37]/10 mb-3"
             >
               <Icon className="w-6 h-6 text-[#D4AF37]" />

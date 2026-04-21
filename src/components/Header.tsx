@@ -46,17 +46,13 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          {/* Logo */}
-          <Link to="/">
-            <motion.div
-              className="flex-shrink-0"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <h1 className="text-2xl tracking-tight cursor-pointer text-white">
+          {/* Logo — decorative wordmark, not a page heading. Each route owns its own <h1>. */}
+          <Link to="/" aria-label="Manila Watch Atelier — Home">
+            <div className="flex-shrink-0">
+              <span className="block text-2xl tracking-tight text-white motion-safe:transition-opacity hover:opacity-90">
                 MANILA WATCH<span className="font-light text-[#D4AF37]"> ATELIER</span>
-              </h1>
-            </motion.div>
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}

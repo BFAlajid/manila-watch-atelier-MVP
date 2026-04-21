@@ -216,7 +216,10 @@ export default function WatchDetailPage() {
             <div>
               {/* Brand & Name */}
               <p className="text-[#D4AF37] mb-2">{watch.brand}</p>
-              <h1 className="text-4xl mb-4 font-serif">{watch.name}</h1>
+              <h1 className="text-4xl mb-4 font-serif">
+                <span className="block text-sm tracking-widest text-[#D4AF37] mb-2 font-sans uppercase">{watch.brand}</span>
+                {watch.name}
+              </h1>
 
               {/* Reference & Copy */}
               <div className="flex items-center gap-3 mb-4">

@@ -93,8 +93,16 @@ function App() {
         <WatchProvider>
           <Router>
             <div className="min-h-screen bg-black">
+              <a
+                href="#main"
+                className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#D4AF37] focus:text-black focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-[#D4AF37]"
+              >
+                Skip to main content
+              </a>
               <ScrollProgress />
-              <AnimatedRoutes />
+              <main id="main" tabIndex={-1} className="outline-none">
+                <AnimatedRoutes />
+              </main>
 
               <ComparisonBar />
               <Suspense fallback={null}>

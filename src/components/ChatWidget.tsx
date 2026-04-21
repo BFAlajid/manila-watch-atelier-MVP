@@ -274,13 +274,12 @@ export function ChatWidget() {
                 position: 'absolute',
                 top: '-2px',
                 right: '-2px',
-                width: '14px',
-                height: '14px',
-                background: '#34D399',
+                width: '10px',
+                height: '10px',
+                background: '#D4AF37',
                 borderRadius: '50%',
                 border: '2px solid #000',
-                animation: 'pulse 2s infinite',
-              }} />
+              }} aria-hidden="true" />
             )}
           </button>
         </div>

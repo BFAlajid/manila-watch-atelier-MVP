@@ -139,9 +139,8 @@ export function ProductGrid({ limit }: ProductGridProps) {
             </div>
             <motion.button
               onClick={() => setShowFilters(!showFilters)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg transition-colors"
+              whileHover={{ y: -1 }}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg motion-safe:transition-colors motion-reduce:transition-none"
             >
               <SlidersHorizontal className="w-4 h-4 text-neutral-400" />
               <span className="text-neutral-300">Filters</span>

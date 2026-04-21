@@ -144,8 +144,7 @@ export function DealerSection() {
                 href="https://www.instagram.com/manilawatchatelier/"
                 target="_blank"
                 rel="noopener noreferrer"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ y: -2 }}
                 className="bg-[#D4AF37] text-black px-6 py-3 rounded-lg hover:bg-[#F4E5B8] transition-colors inline-flex items-center space-x-2 shadow-lg"
               >
                 <Instagram className="w-5 h-5" />
@@ -156,8 +155,7 @@ export function DealerSection() {
                 href="https://www.facebook.com/sherard.ng"
                 target="_blank"
                 rel="noopener noreferrer"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ y: -2 }}
                 className="border border-neutral-700 text-white px-6 py-3 rounded-lg hover:bg-neutral-900 transition-colors inline-flex items-center space-x-2 shadow"
               >
                 <Facebook className="w-5 h-5" />
@@ -165,8 +163,7 @@ export function DealerSection() {
               </motion.a>
 
               <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ y: -2 }}
                 onClick={() => {
                   window.open('https://m.me/sherard.ng', '_blank');
                 }}
@@ -188,11 +185,11 @@ export function DealerSection() {
           >
             <div className="aspect-[3/4] bg-neutral-900 overflow-hidden shadow-2xl rounded-2xl border border-neutral-800">
               <motion.img
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.6 }}
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
                 src={dealerImage}
                 alt="Sherard W Ng"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover motion-reduce:transition-none"
               />
             </div>
           </motion.div>
