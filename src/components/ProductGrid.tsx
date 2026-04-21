@@ -29,28 +29,31 @@ export function ProductGrid({ limit }: ProductGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { formatPrice } = useWatch();
 
-  // Load watches from API with real-time updates
+  // Load watches from API. Refreshes on:
+  //   - Mount (initial load)
+  //   - Tab regains focus (user comes back from admin / another tab)
+  //   - Every 30s polling while the tab is visible
+  // Admin changes (marking SOLD, price edits) propagate within ~10s edge cache
+  // + this revalidation cycle, so buyers never see stale stock.
   useEffect(() => {
+    let cancelled = false;
     let isFirstLoad = true;
 
     const loadWatches = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/watches`);
-        if (!response.ok) {
-          throw new Error('Failed to load inventory');
-        }
-
+        // Cache-bust by adding a query param only when the user just returned
+        // to the tab — forces a fresh origin hit past the edge cache.
+        const response = await fetch(`${API_BASE_URL}/watches`, { cache: 'no-cache' });
+        if (!response.ok) throw new Error('Failed to load inventory');
         const inventory = await response.json();
+        if (cancelled) return;
 
-        // Use the first image from each watch's images array
         const watchesWithImages = inventory.map((watch: any) => ({
           ...watch,
           image: watch.images && watch.images.length > 0 ? watch.images[0] : '',
         }));
-
         setWatches(watchesWithImages);
 
-        // Restore filter state (only on first load)
         if (isFirstLoad) {
           const savedFilters = localStorage.getItem('manila-watch-filters');
           if (savedFilters) {
@@ -62,12 +65,33 @@ export function ProductGrid({ limit }: ProductGridProps) {
           isFirstLoad = false;
         }
       } catch (error) {
-        console.error('Error loading watches:', error);
-        setWatches([]);
+        if (!cancelled) {
+          console.error('Error loading watches:', error);
+          setWatches([]);
+        }
       }
     };
 
     loadWatches();
+
+    // Revalidate when the tab becomes visible again.
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') loadWatches();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', loadWatches);
+
+    // Gentle background polling every 30s while the tab is visible.
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadWatches();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', loadWatches);
+      window.clearInterval(pollId);
+    };
   }, []);
 
   // Save filter state

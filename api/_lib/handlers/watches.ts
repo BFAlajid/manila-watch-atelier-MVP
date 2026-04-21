@@ -72,10 +72,13 @@ export const listWatches: Handler = async (ctx) => {
   return {
     status: 200,
     body: watches,
-    // Edge-cache the public catalog for 60s and serve stale for up to 5min
-    // while the cache revalidates. Drops origin load ~60x during traffic bursts.
+    // Short cache so admin changes propagate quickly to buyers.
+    //   max-age=0       : browser always revalidates (freshness on every page load)
+    //   s-maxage=10     : Vercel edge caches 10s (absorbs traffic bursts)
+    //   stale-while-revalidate=30 : serve stale up to 30s while refreshing in the background
+    // Net: admin marks a watch SOLD → disappears from public within ~10s.
     headers: {
-      'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300',
+      'Cache-Control': 'public, max-age=0, s-maxage=10, stale-while-revalidate=30',
     },
   };
 };
