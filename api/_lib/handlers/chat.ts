@@ -5,9 +5,11 @@ import { getWatches } from '../data.js';
 import { isRateLimited } from '../rate-limit.js';
 import { buildSystemPrompt, chatTools, executeChatTool } from './chatTools.js';
 
-// Stop issuing new tool-rounds once we're within 5s of the Vercel maxDuration.
-// Prevents the worst-case 5 rounds × 8s from blowing past 30s and 502ing.
-const CHAT_TIME_BUDGET_MS = 25_000;
+// Stop issuing new tool-rounds before the Vercel function timeout burns us.
+// Hobby tier = 10s hard limit; leave ~3s buffer for the final Anthropic call
+// + JSON serialization. Override via CHAT_TIME_BUDGET_MS for Pro (up to ~25s).
+const CHAT_TIME_BUDGET_MS = Number(process.env.CHAT_TIME_BUDGET_MS) || 7_000;
+const MAX_TOOL_CALLS = Number(process.env.CHAT_MAX_TOOL_CALLS) || 3;
 
 export const handleChat: Handler = async (ctx) => {
   if (ctx.method !== 'POST') return { status: 405, body: { error: 'Method not allowed' } };
@@ -64,11 +66,10 @@ export const handleChat: Handler = async (ctx) => {
   }));
   let finalText = '';
   let toolCallCount = 0;
-  const maxToolCalls = 5;
   const deadline = Date.now() + CHAT_TIME_BUDGET_MS;
 
   try {
-    while (toolCallCount < maxToolCalls) {
+    while (toolCallCount < MAX_TOOL_CALLS) {
       if (Date.now() > deadline) {
         // Gracefully stop rather than 502ing past the function timeout.
         finalText = finalText
