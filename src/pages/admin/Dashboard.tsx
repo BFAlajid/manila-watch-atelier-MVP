@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import {
   Package, DollarSign, TrendingUp, MessageSquare, LogOut, Plus, Edit2, Trash2,
   Eye, Search, Filter, ChevronDown, ChevronUp, Mail, Phone, Clock,
@@ -402,6 +403,8 @@ export function AdminDashboard() {
   const [inquirySearch, setInquirySearch] = useState('');
   const [inquirySort, setInquirySort] = useState<InquirySort>('newest');
   const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
+  const [selectedInquiries, setSelectedInquiries] = useState<Set<string>>(new Set());
+  const [inquiryBulkLoading, setInquiryBulkLoading] = useState(false);
 
   // CRM notes — server-persisted per inquiry. Debounced save queue.
   const [crmNotes, setCrmNotes] = useState<Record<string, string>>({});
@@ -473,18 +476,30 @@ export function AdminDashboard() {
   // Watch status change
   // -------------------------------------------------------------------------
   const handleWatchStatusChange = async (slug: string, newStatus: string) => {
+    // Snapshot previous status so we can revert if the server rejects the change.
+    const prevStatus = watches.find((w) => w.slug === slug)?.status;
+    // Optimistic update for snappy UI.
+    setWatches((prev) =>
+      prev.map((w) => (w.slug === slug ? { ...w, status: newStatus } : w))
+    );
     try {
       const res = await fetch(`${API_BASE_URL}/watches/${slug}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error('Failed to update status');
-      setWatches((prev) =>
-        prev.map((w) => (w.slug === slug ? { ...w, status: newStatus } : w))
-      );
-    } catch {
-      alert('Failed to update watch status. Please try again.');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to update status');
+      }
+      toast.success(`Marked as ${newStatus}`);
+    } catch (err: any) {
+      if (prevStatus !== undefined) {
+        setWatches((prev) =>
+          prev.map((w) => (w.slug === slug ? { ...w, status: prevStatus } : w))
+        );
+      }
+      toast.error(err?.message || 'Failed to update watch status. Please try again.');
     }
   };
 
@@ -492,23 +507,88 @@ export function AdminDashboard() {
   // Inquiry status change (CRM progression)
   // -------------------------------------------------------------------------
   const handleInquiryStatusChange = async (id: string, newStatus: string) => {
+    const prev = inquiries.find((i) => i.id === id);
+    const body: Record<string, any> = { status: newStatus };
+    if (newStatus === 'CONTACTED' || newStatus === 'FOLLOW_UP') {
+      body.lastContactedAt = new Date().toISOString();
+    }
+    // Optimistic update — snapper for the admin.
+    setInquiries((cur) => cur.map((inq) => (inq.id === id ? { ...inq, ...body } : inq)));
     try {
-      const body: Record<string, any> = { status: newStatus };
-      // When marking as CONTACTED or FOLLOW_UP, update lastContactedAt
-      if (newStatus === 'CONTACTED' || newStatus === 'FOLLOW_UP') {
-        body.lastContactedAt = new Date().toISOString();
-      }
       const res = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('Failed to update status');
-      setInquiries((prev) =>
-        prev.map((inq) => (inq.id === id ? { ...inq, ...body } : inq))
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to update status');
+      }
+      toast.success(`Lead marked as ${newStatus.replace('_', ' ')}`);
+    } catch (err: any) {
+      // Revert: server rejected, so we shouldn't pretend the UI is in sync.
+      if (prev) {
+        setInquiries((cur) => cur.map((inq) => (inq.id === id ? prev : inq)));
+      }
+      toast.error(err?.message || 'Failed to update inquiry status. Please try again.');
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Bulk inquiry actions — admin selects N inquiries, applies one status.
+  // -------------------------------------------------------------------------
+  const toggleInquirySelection = (id: string) => {
+    setSelectedInquiries((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllInquiries = () => {
+    if (selectedInquiries.size === filteredInquiries.length) {
+      setSelectedInquiries(new Set());
+    } else {
+      setSelectedInquiries(new Set(filteredInquiries.map((i) => i.id)));
+    }
+  };
+
+  const handleBulkInquiryStatusChange = async (newStatus: 'CONTACTED' | 'FOLLOW_UP' | 'CLOSED') => {
+    if (selectedInquiries.size === 0) return;
+    if (!confirm(`Mark ${selectedInquiries.size} inquiry(ies) as ${newStatus.replace('_', ' ')}?`)) return;
+
+    setInquiryBulkLoading(true);
+    const selectedArr = inquiries.filter((i) => selectedInquiries.has(i.id));
+    const body: Record<string, any> = { status: newStatus };
+    if (newStatus === 'CONTACTED' || newStatus === 'FOLLOW_UP') {
+      body.lastContactedAt = new Date().toISOString();
+    }
+    try {
+      const results = await Promise.all(
+        selectedArr.map((inq) =>
+          fetch(`${API_BASE_URL}/inquiries/${inq.id}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(body),
+          }).then((r) => ({ id: inq.id, ok: r.ok }))
+        )
       );
+      const ok = results.filter((r) => r.ok).map((r) => r.id);
+      const failed = results.length - ok.length;
+      // Only mutate the successful rows so the UI tracks server truth.
+      setInquiries((prev) =>
+        prev.map((inq) => (ok.includes(inq.id) ? { ...inq, ...body } : inq))
+      );
+      setSelectedInquiries(new Set());
+      if (failed > 0) {
+        toast.warning(`${failed} of ${selectedArr.length} updates failed — refresh to verify.`);
+      } else {
+        toast.success(`${ok.length} inquiry(ies) marked ${newStatus.replace('_', ' ')}`);
+      }
     } catch {
-      alert('Failed to update inquiry status. Please try again.');
+      toast.error('Bulk update failed. Please refresh and try again.');
+    } finally {
+      setInquiryBulkLoading(false);
     }
   };
 
@@ -633,8 +713,9 @@ export function AdminDashboard() {
         next.delete(id);
         return next;
       });
+      toast.success('Watch marked as SOLD');
     } catch (err: any) {
-      alert(err?.message || 'Failed to mark watch as sold. Please try again.');
+      toast.error(err?.message || 'Failed to mark watch as sold. Please try again.');
     }
   };
 
@@ -651,12 +732,12 @@ export function AdminDashboard() {
       const text = await file.text();
       const rows = parseCSV(text);
       if (rows.length < 2) {
-        alert('CSV appears empty — expected a header row plus at least one data row.');
+        toast.error('CSV appears empty — expected a header row plus at least one data row.');
         return;
       }
       const watchObjects = csvRowsToWatchObjects(rows);
       if (watchObjects.length === 0) {
-        alert('No valid rows found in CSV.');
+        toast.error('No valid rows found in CSV.');
         return;
       }
       if (!confirm(
@@ -680,21 +761,19 @@ export function AdminDashboard() {
 
       await fetchWatches();
 
-      const errorDetail = result.errors && result.errors.length > 0
-        ? `\n\nFirst errors:\n${result.errors
-            .slice(0, 5)
-            .map((err: any) => `Row ${err.row}${err.slug ? ` (${err.slug})` : ''}: ${err.error}`)
-            .join('\n')}`
-        : '';
-      alert(
-        `Import complete.\n` +
-        `Created: ${result.created}\n` +
-        `Updated: ${result.updated}\n` +
-        `Errors: ${result.errors?.length || 0}` +
-        errorDetail
-      );
+      const errorCount = result.errors?.length || 0;
+      const summary = `Created ${result.created} · Updated ${result.updated}${errorCount ? ` · ${errorCount} error(s)` : ''}`;
+      if (errorCount > 0) {
+        const firstErr = result.errors[0];
+        toast.warning(`Import complete — ${summary}`, {
+          description: `First error: Row ${firstErr.row}${firstErr.slug ? ` (${firstErr.slug})` : ''}: ${firstErr.error}`,
+          duration: 8000,
+        });
+      } else {
+        toast.success(`Import complete — ${summary}`);
+      }
     } catch (err: any) {
-      alert(err?.message || 'Import failed.');
+      toast.error(err?.message || 'Import failed.');
     } finally {
       setBulkActionLoading(false);
     }
@@ -731,7 +810,7 @@ export function AdminDashboard() {
     setBulkActionLoading(true);
     try {
       const selectedArr = watches.filter((w) => selectedWatches.has(w.id));
-      await Promise.all(
+      const results = await Promise.all(
         selectedArr.map((w) =>
           fetch(`${API_BASE_URL}/watches/${w.slug}`, {
             method: 'PUT',
@@ -740,12 +819,18 @@ export function AdminDashboard() {
           })
         )
       );
+      const failed = results.filter((r) => !r.ok).length;
       setWatches((prev) =>
         prev.map((w) => (selectedWatches.has(w.id) ? { ...w, status: newStatus } : w))
       );
       setSelectedWatches(new Set());
+      if (failed > 0) {
+        toast.warning(`${failed} of ${selectedArr.length} updates failed — refresh to see authoritative state.`);
+      } else {
+        toast.success(`${selectedArr.length} watch(es) marked ${label}`);
+      }
     } catch {
-      alert('Some bulk status updates failed. Please refresh and try again.');
+      toast.error('Some bulk status updates failed. Please refresh and try again.');
     } finally {
       setBulkActionLoading(false);
     }
@@ -769,12 +854,14 @@ export function AdminDashboard() {
       );
       const failed = results.filter((r) => !r.ok).length;
       if (failed > 0) {
-        alert(`${failed} of ${selectedArr.length} could not be marked as sold. Refresh and retry those.`);
+        toast.warning(`${failed} of ${selectedArr.length} could not be marked SOLD. Refresh and retry those.`);
+      } else {
+        toast.success(`${selectedArr.length} watch(es) marked SOLD`);
       }
       setWatches((prev) => prev.filter((w) => !selectedWatches.has(w.id)));
       setSelectedWatches(new Set());
     } catch {
-      alert('Some deletions failed. Please refresh and try again.');
+      toast.error('Some deletions failed. Please refresh and try again.');
     } finally {
       setBulkActionLoading(false);
     }
@@ -1866,6 +1953,47 @@ export function AdminDashboard() {
               </div>
             )}
 
+            {/* Bulk action bar — only visible when inquiries are selected */}
+            {!inquiriesLoading && !inquiriesError && selectedInquiries.size > 0 && (
+              <div className="mb-4 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/5 p-3 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  {selectedInquiries.size} selected
+                </span>
+                <button
+                  type="button"
+                  disabled={inquiryBulkLoading}
+                  onClick={() => handleBulkInquiryStatusChange('CONTACTED')}
+                  className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                >
+                  Mark CONTACTED
+                </button>
+                <button
+                  type="button"
+                  disabled={inquiryBulkLoading}
+                  onClick={() => handleBulkInquiryStatusChange('FOLLOW_UP')}
+                  className="px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                >
+                  Mark FOLLOW UP
+                </button>
+                <button
+                  type="button"
+                  disabled={inquiryBulkLoading}
+                  onClick={() => handleBulkInquiryStatusChange('CLOSED')}
+                  className="px-3 py-1.5 text-xs font-medium bg-neutral-600 text-white rounded-lg hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+                >
+                  Mark CLOSED
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedInquiries(new Set())}
+                  className="ml-auto text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                >
+                  Clear selection
+                </button>
+                {inquiryBulkLoading && <Loader2 className="w-4 h-4 animate-spin text-neutral-500" />}
+              </div>
+            )}
+
             {/* Inquiries Table */}
             {!inquiriesLoading && !inquiriesError && (
               <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -1873,6 +2001,17 @@ export function AdminDashboard() {
                   <table className="w-full">
                     <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                       <tr>
+                        <th className="px-4 py-3 w-10">
+                          <label className="flex items-center justify-center cursor-pointer" title="Select all visible">
+                            <input
+                              type="checkbox"
+                              checked={filteredInquiries.length > 0 && selectedInquiries.size === filteredInquiries.length}
+                              onChange={toggleSelectAllInquiries}
+                              aria-label="Select all visible inquiries"
+                              className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-[#D4AF37] focus:ring-[#D4AF37]"
+                            />
+                          </label>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Name
                         </th>
@@ -1903,8 +2042,23 @@ export function AdminDashboard() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: index * 0.03 }}
-                            className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                            className={`transition-colors ${
+                              selectedInquiries.has(inquiry.id)
+                                ? 'bg-[#D4AF37]/10 hover:bg-[#D4AF37]/15'
+                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                            }`}
                           >
+                            <td className="px-4 py-4">
+                              <label className="flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedInquiries.has(inquiry.id)}
+                                  onChange={() => toggleInquirySelection(inquiry.id)}
+                                  aria-label={`Select inquiry from ${inquiry.name}`}
+                                  className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-[#D4AF37] focus:ring-[#D4AF37]"
+                                />
+                              </label>
+                            </td>
                             <td className="px-6 py-4 text-sm font-medium text-neutral-900">
                               <div className="flex flex-col gap-1">
                                 <span>{inquiry.name}</span>
@@ -2054,7 +2208,7 @@ export function AdminDashboard() {
                                 exit={{ opacity: 0, height: 0 }}
                                 className="bg-neutral-50 dark:bg-neutral-800/50"
                               >
-                                <td colSpan={7} className="px-6 py-4">
+                                <td colSpan={8} className="px-6 py-4">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Message */}
                                     <div>
