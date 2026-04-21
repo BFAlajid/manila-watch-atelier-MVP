@@ -1,11 +1,11 @@
-import { X, Send } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Send } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Modal } from './ui/Modal';
+import { Field } from './ui/Field';
+import { Button } from './ui/Button';
 
-const API_BASE_URL = import.meta.env.PROD
-  ? '/api'
-  : 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
 
 interface InquiryModalProps {
   isOpen: boolean;
@@ -16,13 +16,11 @@ interface InquiryModalProps {
   watchId?: string;
 }
 
+const inputClass =
+  'w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-600 focus:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900';
+
 export function InquiryModal({ isOpen, onClose, watchName, watchReference, watchPrice, watchId }: InquiryModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    message: ''
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,114 +56,51 @@ export function InquiryModal({ isOpen, onClose, watchName, watchReference, watch
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Inquire about this watch"
+      description={`${watchName} — ${watchPrice}`}
+      size="md"
+    >
+      <h2 className="text-2xl text-white mb-2">Inquire About This Watch</h2>
+      <p className="text-neutral-400 mb-6">
+        {watchName} <span className="text-[#D4AF37]">{watchPrice}</span>
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="Name" name="name" required>
+          <input type="text" value={formData.name} onChange={handleChange} placeholder="Your full name" className={inputClass} />
+        </Field>
+
+        <Field label="Email" name="email" required>
+          <input type="email" value={formData.email} onChange={handleChange} placeholder="your@email.com" className={inputClass} />
+        </Field>
+
+        <Field label="Phone" name="phone">
+          <input type="tel" value={formData.phone} onChange={handleChange} placeholder="+63 xxx xxx xxxx" className={inputClass} />
+        </Field>
+
+        <Field label="Message" name="message">
+          <textarea
+            value={formData.message}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Any questions or special requests..."
+            className={`${inputClass} resize-none`}
           />
+        </Field>
 
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div className="bg-neutral-900 rounded-2xl max-w-lg w-full p-8 relative border border-neutral-800">
-              <button
-                onClick={onClose}
-                aria-label="Close inquiry form"
-                className="absolute top-4 right-4 text-neutral-400 hover:text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
+        <Button type="submit" loading={isSubmitting} leftIcon={<Send className="w-4 h-4" />} fullWidth>
+          {isSubmitting ? 'Sending…' : 'Send Inquiry'}
+        </Button>
+      </form>
 
-              <h2 className="text-2xl text-white mb-2">Inquire About This Watch</h2>
-              <p className="text-neutral-400 mb-6">
-                {watchName} <span className="text-[#D4AF37]">{watchPrice}</span>
-              </p>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-neutral-300 mb-2">Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
-                    placeholder="Your full name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-neutral-300 mb-2">Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
-                    placeholder="your@email.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-neutral-300 mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none"
-                    placeholder="+63 xxx xxx xxxx"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-neutral-300 mb-2">Message</label>
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    rows={4}
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-[#D4AF37] focus:outline-none resize-none"
-                    placeholder="Any questions or special requests..."
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full px-6 py-3 bg-[#D4AF37] text-black rounded-lg hover:bg-[#F4E5B8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  {isSubmitting ? 'Sending...' : 'Send Inquiry'}
-                </button>
-              </form>
-
-              <p className="text-xs text-neutral-500 mt-4 text-center">
-                We typically respond within 24 hours
-              </p>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+      <p className="text-xs text-neutral-500 mt-4 text-center">We typically respond within 24 hours</p>
+    </Modal>
   );
 }

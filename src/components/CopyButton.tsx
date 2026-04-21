@@ -2,6 +2,7 @@ import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { copyToClipboard } from '../utils/currency';
 import { toast } from 'sonner';
+import { IconButton } from './ui/IconButton';
 
 interface CopyButtonProps {
   text: string;
@@ -18,22 +19,20 @@ export function CopyButton({ text, label, className = '' }: CopyButtonProps) {
       setCopied(true);
       toast.success(`${label || 'Text'} copied to clipboard!`);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error('Failed to copy');
     }
   };
 
   return (
-    <button
+    <IconButton
+      label={`Copy ${label || 'text'}`}
+      icon={copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+      variant="subtle"
+      size="sm"
       onClick={handleCopy}
-      className={`inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-[#D4AF37] transition-colors ${className}`}
       title={`Copy ${label || 'text'}`}
-    >
-      {copied ? (
-        <Check className="w-4 h-4 text-green-600" />
-      ) : (
-        <Copy className="w-4 h-4" />
-      )}
-    </button>
+      className={className}
+    />
   );
 }

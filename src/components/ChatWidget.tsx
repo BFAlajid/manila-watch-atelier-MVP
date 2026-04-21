@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { MessageSquare, X, Send, Loader2, RotateCcw, Minus } from 'lucide-react';
+import { IconButton } from './ui/IconButton';
 
 const API_BASE_URL = import.meta.env.PROD
   ? '/api'
@@ -339,15 +340,31 @@ export function ChatWidget() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '2px' }}>
-                <button onClick={resetChat} title="New conversation" className="p-2 text-neutral-500 hover:text-[#D4AF37] rounded-lg transition-colors">
-                  <RotateCcw size={15} />
-                </button>
-                <button onClick={() => setIsOpen(false)} title="Minimize" className="p-2 text-neutral-500 hover:text-white rounded-lg transition-colors">
-                  <Minus size={15} />
-                </button>
-                <button onClick={() => setIsOpen(false)} title="Close" className="p-2 text-neutral-500 hover:text-red-400 rounded-lg transition-colors">
-                  <X size={15} />
-                </button>
+                <IconButton
+                  label="New conversation"
+                  icon={<RotateCcw size={15} />}
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetChat}
+                  title="New conversation"
+                />
+                <IconButton
+                  label="Minimize chat"
+                  icon={<Minus size={15} />}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsOpen(false)}
+                  title="Minimize"
+                />
+                <IconButton
+                  label="Close chat"
+                  icon={<X size={15} />}
+                  variant="ghost"
+                  size="sm"
+                  tone="danger"
+                  onClick={() => setIsOpen(false)}
+                  title="Close"
+                />
               </div>
             </div>
 

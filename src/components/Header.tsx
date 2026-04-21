@@ -6,6 +6,7 @@ import { SearchBar } from './SearchBar';
 import { CurrencyToggle } from './CurrencyToggle';
 import { CurrencySelector } from './CurrencySelector';
 import { useWatch } from '../context/WatchContext';
+import { IconButton } from './ui/IconButton';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -98,36 +99,37 @@ export function Header() {
               className="hidden md:block"
             />
 
-            <Link to="/favorites" className="relative">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-2 text-neutral-300 hover:text-[#D4AF37] transition-colors"
-              >
-                <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'fill-[#D4AF37] text-[#D4AF37]' : ''}`} />
-                <AnimatePresence>
-                  {favorites.length > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute -top-1 -right-1 bg-[#D4AF37] text-black text-xs w-5 h-5 rounded-full flex items-center justify-center"
-                    >
-                      {favorites.length}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            </Link>
-            
-            <motion.button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="md:hidden p-2 text-neutral-300 hover:text-white transition-colors"
+            <Link
+              to="/favorites"
+              aria-label={favorites.length > 0 ? `View favorites (${favorites.length})` : 'View favorites'}
+              className="relative inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2 rounded-lg text-neutral-300 hover:text-[#D4AF37] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-black motion-safe:transition-colors"
             >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </motion.button>
+              <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'fill-[#D4AF37] text-[#D4AF37]' : ''}`} aria-hidden="true" />
+              <AnimatePresence>
+                {favorites.length > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    aria-hidden="true"
+                    className="absolute -top-1 -right-1 bg-[#D4AF37] text-black text-xs w-5 h-5 rounded-full flex items-center justify-center motion-reduce:transition-none"
+                  >
+                    {favorites.length}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Link>
+
+            <IconButton
+              label={isMenuOpen ? 'Close menu' : 'Open menu'}
+              icon={isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              variant="ghost"
+              size="md"
+              aria-expanded={isMenuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden"
+            />
           </div>
         </div>
 
@@ -135,11 +137,12 @@ export function Header() {
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
+              id="mobile-menu"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="md:hidden overflow-hidden border-t border-neutral-800"
+              className="md:hidden overflow-hidden border-t border-neutral-800 motion-reduce:transition-none"
             >
               <nav className="flex flex-col py-4 space-y-4">
                 {navLinks.map((item, i) => (
