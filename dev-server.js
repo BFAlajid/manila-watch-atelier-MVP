@@ -23,6 +23,7 @@ import {
   createWatch,
   updateWatch,
   deleteWatch,
+  bulkImportWatches,
 } from './api/_lib/handlers/watches.ts';
 import {
   createInquiry,
@@ -91,6 +92,7 @@ app.get('/api/watches', route(listWatches));
 app.get('/api/watches/:slug', route(getWatchBySlug, (req) => ({ slug: req.params.slug })));
 app.post('/api/watches', route(createWatch));
 app.post('/api/watches/create', route(createWatch));
+app.post('/api/watches/bulk-import', route(bulkImportWatches));
 app.put('/api/watches/:slug', route(updateWatch, (req) => ({ slug: req.params.slug })));
 app.delete('/api/watches/:slug', route(deleteWatch, (req) => ({ slug: req.params.slug })));
 

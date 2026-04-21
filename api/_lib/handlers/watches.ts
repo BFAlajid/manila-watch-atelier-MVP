@@ -223,6 +223,131 @@ export const updateWatch: Handler = async (ctx) => {
   return { status: 200, body: { success: true, watch: watches[index] } };
 };
 
+// ─── Admin: POST /api/watches/bulk-import — CSV round-trip ────────────────
+// Upserts a batch of watches by slug. Each row validated via watchCreateSchema.
+// Existing watches (same slug) are updated; new slugs create fresh records.
+// Returns per-row error details so the admin UI can surface what failed.
+export const bulkImportWatches: Handler = async (ctx) => {
+  if (ctx.method !== 'POST') return { status: 405, body: { error: 'Method not allowed' } };
+  if (!ctx.auth.authenticated) return { status: 401, body: { error: 'Unauthorized' } };
+
+  const body = (ctx.body || {}) as { watches?: any[] };
+  if (!body.watches || !Array.isArray(body.watches)) {
+    return { status: 400, body: { error: 'Missing `watches` array in body' } };
+  }
+  if (body.watches.length === 0) {
+    return { status: 400, body: { error: 'No rows to import' } };
+  }
+  if (body.watches.length > 500) {
+    return { status: 400, body: { error: 'Too many rows at once — max 500 per import' } };
+  }
+
+  const watches = await getWatches();
+  const errors: Array<{ row: number; slug?: string; error: string }> = [];
+  let created = 0;
+  let updated = 0;
+
+  for (let i = 0; i < body.watches.length; i++) {
+    const raw = body.watches[i];
+    const parsed = watchCreateSchema.safeParse(raw);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const msg = Object.entries(fieldErrors)
+        .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join('; ') : 'invalid'}`)
+        .join('; ');
+      errors.push({ row: i + 1, slug: raw?.slug, error: msg || 'validation failed' });
+      continue;
+    }
+    const data = parsed.data;
+    const existingIdx = watches.findIndex((w) => w.slug === data.slug);
+    if (existingIdx !== -1) {
+      watches[existingIdx] = {
+        ...watches[existingIdx],
+        ...data,
+        pricePHP: data.pricePHP,
+        price_php: data.pricePHP,
+        updated_at: new Date().toISOString(),
+      };
+      updated++;
+    } else {
+      const watch: any = {
+        id: `watch-${crypto.randomUUID()}`,
+        slug: data.slug,
+        brand: data.brand,
+        model: data.model,
+        reference: data.reference || '',
+        name: data.name || `${data.model}${data.nickname ? ` "${data.nickname}"` : ''}`,
+        nickname: data.nickname || null,
+        year: data.year || null,
+        price_php: data.pricePHP,
+        pricePHP: data.pricePHP,
+        retailPricePHP: data.retailPricePHP || null,
+        condition: data.condition,
+        box: data.box,
+        papers: data.papers,
+        boxPapers: data.boxPapers,
+        tier: data.tier,
+        availability: data.availability,
+        category: data.category,
+        description: data.description,
+        images: data.images,
+        video: data.video || null,
+        specifications: data.specifications,
+        status: data.status,
+        featured: data.featured,
+        viewCount: 0,
+        inquiryCount: 0,
+        marketTrend: data.marketTrend,
+        annualAppreciation: data.annualAppreciation,
+        caseDiameter: data.caseDiameter || null,
+        caseMaterial: data.caseMaterial || null,
+        dialColor: data.dialColor || null,
+        movement: data.movement || null,
+        caliber: data.caliber || null,
+        braceletType: data.braceletType || null,
+        complications: data.complications,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      watches.push(watch);
+      created++;
+    }
+  }
+
+  let saveOk = true;
+  try {
+    await saveWatches(watches);
+  } catch (err: any) {
+    saveOk = false;
+    console.error('[watches/bulk-import] saveWatches failed:', err?.message || err);
+  }
+
+  auditAdminAction({
+    actor: ctx.auth.username || 'admin',
+    action: 'watch.bulkImport',
+    resource: 'watches',
+    ip: ctx.clientIP,
+    ok: saveOk,
+    details: {
+      total: body.watches.length,
+      created,
+      updated,
+      errorCount: errors.length,
+    },
+  });
+
+  return {
+    status: 200,
+    body: {
+      success: saveOk,
+      total: body.watches.length,
+      created,
+      updated,
+      errors,
+    },
+  };
+};
+
 // ─── Admin: DELETE /api/watches/:slug — soft-delete (mark SOLD) ────────────
 export const deleteWatch: Handler = async (ctx) => {
   if (ctx.method !== 'DELETE') return { status: 405, body: { error: 'Method not allowed' } };

@@ -129,18 +129,139 @@ function escapeCSV(value: string | number | null | undefined): string {
 }
 
 function exportWatchesCSV(watches: Watch[]) {
-  const headers = ['Brand', 'Model', 'Name', 'Reference', 'Price (PHP)', 'Condition', 'Status'];
-  const rows = watches.map((w) => [
-    escapeCSV(w.brand),
-    escapeCSV(w.model),
-    escapeCSV(w.name),
-    escapeCSV(w.reference),
-    escapeCSV(w.pricePHP ?? w.price_php ?? 0),
-    escapeCSV(w.condition),
-    escapeCSV(w.status),
-  ].join(','));
+  // Round-trip-friendly column set: includes slug so re-importing updates
+  // existing rows instead of creating duplicates. Images joined with `|`.
+  const headers = [
+    'Slug', 'Brand', 'Model', 'Name', 'Reference', 'Price (PHP)',
+    'Retail Price (PHP)', 'Condition', 'Box', 'Papers', 'Box Papers',
+    'Tier', 'Category', 'Status', 'Featured', 'Year', 'Nickname',
+    'Case Diameter', 'Case Material', 'Dial Color', 'Movement',
+    'Caliber', 'Bracelet Type', 'Complications', 'Market Trend',
+    'Annual Appreciation', 'Description', 'Images',
+  ];
+  const rows = watches.map((w) => {
+    // Cast to access extended server fields not in the narrow client type.
+    const ext = w as any;
+    return [
+      escapeCSV(w.slug),
+      escapeCSV(w.brand),
+      escapeCSV(w.model),
+      escapeCSV(w.name),
+      escapeCSV(w.reference),
+      escapeCSV(w.pricePHP ?? w.price_php ?? 0),
+      escapeCSV(ext.retailPricePHP ?? ''),
+      escapeCSV(w.condition),
+      escapeCSV(w.box ? 'true' : 'false'),
+      escapeCSV(w.papers ? 'true' : 'false'),
+      escapeCSV(w.boxPapers),
+      escapeCSV(w.tier),
+      escapeCSV(w.category),
+      escapeCSV(w.status),
+      escapeCSV(ext.featured ? 'true' : 'false'),
+      escapeCSV(ext.year ?? ''),
+      escapeCSV(ext.nickname ?? ''),
+      escapeCSV(ext.caseDiameter ?? ''),
+      escapeCSV(ext.caseMaterial ?? ''),
+      escapeCSV(ext.dialColor ?? ''),
+      escapeCSV(ext.movement ?? ''),
+      escapeCSV(ext.caliber ?? ''),
+      escapeCSV(ext.braceletType ?? ''),
+      escapeCSV(Array.isArray(ext.complications) ? ext.complications.join('|') : ''),
+      escapeCSV(ext.marketTrend ?? 'STABLE'),
+      escapeCSV(ext.annualAppreciation ?? 0),
+      escapeCSV(w.description ?? ''),
+      escapeCSV(Array.isArray(w.images) ? w.images.join('|') : ''),
+    ].join(',');
+  });
   const csv = [headers.join(','), ...rows].join('\n');
   downloadCSV(`watches-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+}
+
+// ---------------------------------------------------------------------------
+// CSV Import helpers — round-trip with exportWatchesCSV above.
+// ---------------------------------------------------------------------------
+function parseCSV(text: string): string[][] {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // strip BOM
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+      } else field += c;
+    } else {
+      if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '"' && field === '') inQuotes = true;
+      else field += c;
+    }
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((v) => v.length > 0));
+}
+
+function canonicalizeHeader(h: string): string {
+  const key = h.trim().toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '').replace(/^_+|_+$/g, '');
+  const map: Record<string, string> = {
+    slug: 'slug', brand: 'brand', model: 'model', name: 'name', reference: 'reference',
+    price_php: 'pricePHP', pricephp: 'pricePHP', price: 'pricePHP',
+    retail_price_php: 'retailPricePHP', retailpricephp: 'retailPricePHP', retail_price: 'retailPricePHP',
+    condition: 'condition', box: 'box', papers: 'papers',
+    box_papers: 'boxPapers', boxpapers: 'boxPapers',
+    tier: 'tier', category: 'category', status: 'status', featured: 'featured',
+    year: 'year', nickname: 'nickname', availability: 'availability',
+    case_diameter: 'caseDiameter', casediameter: 'caseDiameter',
+    case_material: 'caseMaterial', casematerial: 'caseMaterial',
+    dial_color: 'dialColor', dialcolor: 'dialColor',
+    movement: 'movement', caliber: 'caliber',
+    bracelet_type: 'braceletType', bracelettype: 'braceletType',
+    complications: 'complications',
+    market_trend: 'marketTrend', markettrend: 'marketTrend',
+    annual_appreciation: 'annualAppreciation', annualappreciation: 'annualAppreciation',
+    description: 'description', images: 'images',
+  };
+  return map[key] || '';
+}
+
+function coerceField(key: string, value: string): any {
+  if (!value) return undefined;
+  if (['box', 'papers', 'featured'].includes(key)) {
+    return ['true', 'yes', '1', 'y'].includes(value.toLowerCase());
+  }
+  if (['pricePHP', 'retailPricePHP', 'year', 'caseDiameter', 'annualAppreciation'].includes(key)) {
+    const n = parseFloat(value.replace(/[,₱$€£¥\s]/g, ''));
+    return isNaN(n) ? undefined : n;
+  }
+  if (key === 'images' || key === 'complications') {
+    return value.split(/[|;]/).map((s) => s.trim()).filter(Boolean);
+  }
+  return value;
+}
+
+function csvRowsToWatchObjects(rows: string[][]): any[] {
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(canonicalizeHeader);
+  return rows.slice(1).map((row) => {
+    const obj: Record<string, any> = {};
+    for (let i = 0; i < headers.length; i++) {
+      const key = headers[i];
+      if (!key) continue;
+      const value = (row[i] ?? '').trim();
+      const coerced = coerceField(key, value);
+      if (coerced !== undefined) obj[key] = coerced;
+    }
+    // Auto-generate slug if missing so first-time imports from non-MWA
+    // spreadsheets still work.
+    if (!obj.slug && obj.brand && obj.model) {
+      const base = `${obj.brand}-${obj.model}${obj.reference ? `-${obj.reference}` : ''}`;
+      obj.slug = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+    return obj;
+  });
 }
 
 function exportInquiriesCSV(inquiries: Inquiry[]) {
@@ -240,6 +361,7 @@ export function AdminDashboard() {
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit Watch modal state
   const [editFormData, setEditFormData] = useState<WatchFormData>({ ...emptyFormData });
@@ -392,6 +514,68 @@ export function AdminDashboard() {
       });
     } catch (err: any) {
       alert(err?.message || 'Failed to mark watch as sold. Please try again.');
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // CSV Import handler
+  // -------------------------------------------------------------------------
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so the same file can be re-selected after a fix.
+    e.target.value = '';
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) {
+        alert('CSV appears empty — expected a header row plus at least one data row.');
+        return;
+      }
+      const watchObjects = csvRowsToWatchObjects(rows);
+      if (watchObjects.length === 0) {
+        alert('No valid rows found in CSV.');
+        return;
+      }
+      if (!confirm(
+        `Import ${watchObjects.length} row(s)?\n\n` +
+        `Existing watches with a matching slug will be updated; ` +
+        `new slugs will create fresh records. ` +
+        `This action is logged in the audit trail.`
+      )) return;
+
+      setBulkActionLoading(true);
+      const res = await fetch(`${API_BASE_URL}/watches/bulk-import`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ watches: watchObjects }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Import failed (${res.status})`);
+      }
+      const result = await res.json();
+
+      await fetchWatches();
+
+      const errorDetail = result.errors && result.errors.length > 0
+        ? `\n\nFirst errors:\n${result.errors
+            .slice(0, 5)
+            .map((err: any) => `Row ${err.row}${err.slug ? ` (${err.slug})` : ''}: ${err.error}`)
+            .join('\n')}`
+        : '';
+      alert(
+        `Import complete.\n` +
+        `Created: ${result.created}\n` +
+        `Updated: ${result.updated}\n` +
+        `Errors: ${result.errors?.length || 0}` +
+        errorDetail
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Import failed.');
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -1145,6 +1329,23 @@ export function AdminDashboard() {
                   >
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline text-sm">Export</span>
+                  </button>
+                  <input
+                    ref={importFileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleImportFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => importFileInputRef.current?.click()}
+                    disabled={bulkActionLoading}
+                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Import watches from a CSV (upserts by slug)"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="hidden sm:inline text-sm">Import</span>
                   </button>
                   <button
                     type="button"
