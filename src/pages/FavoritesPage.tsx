@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Heart, ArrowLeft } from 'lucide-react';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { motion } from 'motion/react';
+import { fetchWatches } from '../lib/api';
 
 interface Watch {
   id: string;
@@ -26,17 +27,17 @@ export default function FavoritesPage() {
       return;
     }
 
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
+    let cancelled = false;
+    fetchWatches()
+      .then((allWatches) => {
+        if (cancelled) return;
+        const favoriteWatches = allWatches.filter((w: Watch) => favorites.includes(w.id));
+        setWatches(favoriteWatches);
       })
-    ]).then(([inventoryData, storedData]) => {
-      const allWatches = [...inventoryData, ...storedData];
-      const favoriteWatches = allWatches.filter((w: Watch) => favorites.includes(w.id));
-      setWatches(favoriteWatches);
-    });
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load watches for favorites page:', err);
+      });
+    return () => { cancelled = true; };
   }, [favorites]);
 
   if (favorites.length === 0) {

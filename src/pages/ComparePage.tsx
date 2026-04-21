@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useWatch } from '../context/WatchContext';
 import { Link } from 'react-router-dom';
 import { X, ArrowLeft } from 'lucide-react';
+import { fetchWatches } from '../lib/api';
 
 interface Watch {
   id: string;
@@ -34,17 +35,17 @@ export default function ComparePage() {
       return;
     }
 
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
+    let cancelled = false;
+    fetchWatches()
+      .then((allWatches) => {
+        if (cancelled) return;
+        const selectedWatches = allWatches.filter((w: Watch) => comparison.includes(w.id));
+        setWatches(selectedWatches);
       })
-    ]).then(([inventoryData, storedData]) => {
-      const allWatches = [...inventoryData, ...storedData];
-      const selectedWatches = allWatches.filter((w: Watch) => comparison.includes(w.id));
-      setWatches(selectedWatches);
-    });
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load watches for compare page:', err);
+      });
+    return () => { cancelled = true; };
   }, [comparison]);
 
   if (comparison.length === 0) {
