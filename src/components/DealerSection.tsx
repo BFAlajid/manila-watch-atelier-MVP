@@ -1,6 +1,8 @@
 import { Facebook, MessageCircle, Instagram, Award, Shield, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
-import dealerImage from 'figma:asset/e23b0e4a5d033dfb8ed6611f9e7eb8086d0179ca.png';
+import dealerImageAvif from '../assets/e23b0e4a5d033dfb8ed6611f9e7eb8086d0179ca.avif';
+import dealerImageWebp from '../assets/e23b0e4a5d033dfb8ed6611f9e7eb8086d0179ca.webp';
+import dealerImage from '../assets/e23b0e4a5d033dfb8ed6611f9e7eb8086d0179ca.opt.png';
 
 export function DealerSection() {
   return (
@@ -184,13 +186,17 @@ export function DealerSection() {
             className="relative"
           >
             <div className="aspect-[3/4] bg-neutral-900 overflow-hidden shadow-2xl rounded-2xl border border-neutral-800">
-              <motion.img
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                src={dealerImage}
-                alt="Sherard W Ng"
-                className="w-full h-full object-cover motion-reduce:transition-none"
-              />
+              <motion.picture whileHover={{ scale: 1.02 }} transition={{ duration: 0.8, ease: 'easeOut' }}>
+                <source srcSet={dealerImageAvif} type="image/avif" />
+                <source srcSet={dealerImageWebp} type="image/webp" />
+                <img
+                  src={dealerImage}
+                  alt="Sherard W Ng"
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-cover motion-reduce:transition-none"
+                />
+              </motion.picture>
             </div>
           </motion.div>
         </div>

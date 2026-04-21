@@ -50,6 +50,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "seed:kv": "tsx scripts/seed-kv.ts",
-    "hash:password": "tsx scripts/hash-password.ts"
+    "hash:password": "tsx scripts/hash-password.ts",
+    "optimize:images": "tsx scripts/optimize-images.ts"
   }
 }
