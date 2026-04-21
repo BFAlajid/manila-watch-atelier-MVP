@@ -9,6 +9,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ScrollProgress } from './components/ScrollProgress';
 import { ComparisonBar } from './components/ComparisonBar';
 import { WhatsAppButton } from './components/WhatsAppButton';
+import { ChatWidget } from './components/ChatWidget';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 
 // Lazy-loaded pages for code splitting
@@ -91,6 +92,7 @@ function App() {
                 <AnimatedRoutes />
 
               <ComparisonBar />
+              <ChatWidget />
               <WhatsAppButton position="fixed" />
 
               <Toaster

@@ -6,6 +6,7 @@ import { verifyAuth } from './_lib/auth.js';
 import { setCorsHeaders } from './_lib/cors.js';
 import { inquirySchema } from './_lib/validation.js';
 import { isRateLimited } from './_lib/rate-limit.js';
+import { sendInquiryNotification } from './_lib/email.js';
 
 export default function handler(req: any, res: any) {
   setCorsHeaders(res);
@@ -64,7 +65,16 @@ export default function handler(req: any, res: any) {
       const inquiries = getInquiries();
       inquiries.push(inquiry);
 
-      try { saveInquiries(inquiries); } catch { /* read-only on Vercel */ }
+      try {
+        saveInquiries(inquiries);
+      } catch (err: any) {
+        console.error('[inquiries] saveInquiries failed (expected on Vercel read-only FS):', err?.message || err);
+      }
+
+      // Durable path: email notification so leads land in Sherard's inbox even if the FS write failed.
+      sendInquiryNotification(inquiry).catch((err: any) =>
+        console.error('[inquiries] email notification failed:', err?.message || err)
+      );
 
       return res.status(201).json({ success: true, id: inquiry.id });
     } catch (error) {

@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Resend } from 'resend';
+import Anthropic from '@anthropic-ai/sdk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,9 @@ app.use(cors({
 app.use(express.json());
 
 // Configure multer for image uploads
+const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const ALLOWED_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif']);
+
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(__dirname, 'public', 'images', 'watches');
@@ -29,8 +33,11 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
+    const original = path.basename(file.originalname || 'upload');
+    const ext = path.extname(original).toLowerCase();
+    const safeBase = original.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const unpredictable = crypto.randomUUID().slice(0, 8);
+    cb(null, `${Date.now()}-${unpredictable}-${safeBase}${ALLOWED_IMAGE_EXTS.has(ext) ? '' : ''}`);
   }
 });
 
@@ -38,8 +45,9 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed'), false);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_IMAGE_MIMES.has(file.mimetype) || !ALLOWED_IMAGE_EXTS.has(ext)) {
+      return cb(new Error('Only JPEG, PNG, WebP, or AVIF images are allowed (SVG explicitly rejected).'), false);
     }
     cb(null, true);
   }
@@ -289,22 +297,332 @@ app.get('/api/inquiries', requireAuth, async (req, res) => {
 });
 
 // ─── PUT /api/inquiries/:id ──────────────────────────────────────────
+const ALLOWED_INQUIRY_STATUSES = new Set(['NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED']);
+
 app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
   try {
     const inquiries = await getInquiries();
     const index = inquiries.findIndex(i => i.id === req.params.id);
     if (index === -1) return res.status(404).json({ error: 'Inquiry not found' });
-    // Only allow updating status field — prevent arbitrary field injection
-    const { status } = req.body;
-    if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
+    // Only allow updating status + lastContactedAt — prevent arbitrary field injection
+    const { status, lastContactedAt } = req.body;
+    if (!status || !ALLOWED_INQUIRY_STATUSES.has(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, FOLLOW_UP, or CLOSED.' });
     }
-    inquiries[index] = { ...inquiries[index], status };
+    if (lastContactedAt && isNaN(Date.parse(lastContactedAt))) {
+      return res.status(400).json({ error: 'Invalid lastContactedAt timestamp.' });
+    }
+    const patch = { status };
+    if (lastContactedAt) patch.lastContactedAt = lastContactedAt;
+    inquiries[index] = { ...inquiries[index], ...patch };
     await saveInquiries(inquiries);
     res.json({ success: true, inquiry: inquiries[index] });
   } catch (error) {
     console.error('Error updating inquiry:', error);
     res.status(500).json({ error: 'Failed to update inquiry' });
+  }
+});
+
+// ─── POST /api/chat — AI Chatbot ────────────────────────────────────
+function buildChatSystemPrompt(watches) {
+  const watchTable = watches
+    .filter(w => (w.status || 'AVAILABLE') !== 'SOLD')
+    .map(w => {
+      const specs = w.specifications || {};
+      return [
+        `- **${w.brand} ${w.model}** (Ref. ${w.reference})`,
+        `  Slug: ${w.slug} | ID: ${w.id}`,
+        `  Price: PHP ${(w.pricePHP || w.price_php || 0).toLocaleString()}`,
+        w.retailPricePHP ? `  Retail: PHP ${w.retailPricePHP.toLocaleString()}` : null,
+        `  Condition: ${w.condition} | ${w.boxPapers || (w.box && w.papers ? 'Box & Papers' : w.box ? 'Box Only' : w.papers ? 'Papers Only' : 'None')}`,
+        `  Category: ${w.category} | Tier: ${w.tier} | Status: ${w.status || 'AVAILABLE'}`,
+        w.year ? `  Year: ${w.year}` : null,
+        specs.diameter || w.caseDiameter ? `  Case: ${specs.diameter || w.caseDiameter + 'mm'} ${w.caseMaterial || specs.caseMaterial || ''}` : null,
+        specs.movement || w.movement ? `  Movement: ${specs.movement || w.movement}` : null,
+        `  Description: ${(w.description || 'N/A').slice(0, 200)}`,
+      ].filter(Boolean).join('\n');
+    })
+    .join('\n\n');
+
+  return `You are the AI concierge for Manila Watch Atelier (MWA), a premium grey market watch dealer in Manila, Philippines, owned and operated by Sherard W Ng.
+
+## YOUR ROLE
+You are a knowledgeable, warm, and professional luxury watch advisor. You represent MWA with the sophistication expected of a high-end watch dealer while being approachable and never condescending. Your primary goal is to help customers find their perfect timepiece and connect them with Sherard for purchase.
+
+## BUSINESS CONTEXT
+- MWA specializes in authenticated luxury watches: Rolex, Patek Philippe, Audemars Piguet, Omega, Cartier, Tudor
+- All watches are personally authenticated and inspected by Sherard
+- Grey market dealer — watches are sourced from the secondary/pre-owned market at competitive prices
+- NO online checkout — all pricing discussions, negotiations, and payments happen directly with Sherard
+- Location: Manila, Philippines
+- Contact: WhatsApp (+63 912 345 6789), Email (sherard@manilawatch.com)
+- Instagram: @manilawatchatelier | Facebook: sherard.ng
+
+## VALUE PROPOSITIONS
+- 3-Month Service Warranty on all purchases
+- Buy-Back Guarantee program (investment protection)
+- Professional authentication with documentation
+- Expert guidance for new and seasoned collectors
+- Watch sourcing service — can find specific models through dealer network
+- In-person viewing appointments available in Manila
+
+## CURRENT INVENTORY
+${watchTable}
+
+## LEAD QUALIFICATION
+Naturally assess: intent level, budget signals, specific interest, timeline, contact willingness.
+
+## BEHAVIOR RULES
+1. NEVER quote exact negotiation prices — say "listed at PHP X" and suggest contacting Sherard for best pricing
+2. NEVER make up watches or specs not in inventory
+3. If a watch isn't in inventory, offer to submit a sourcing request
+4. When customer shows strong buying intent, guide them toward sharing contact info
+5. Keep responses concise — 2-4 sentences for simple queries
+6. Use Filipino-English naturally if the customer does
+7. For technical questions, be detailed and educational
+8. NEVER reveal you are an AI. You are the MWA concierge
+9. Stay neutral about competitors, redirect to MWA value
+10. Currency is PHP by default
+
+## HANDOFF TRIGGERS
+When you detect HIGH INTENT, use create_inquiry tool and tell them Sherard will reach out within 24 hours. Frame as VIP treatment.`;
+}
+
+const chatTools = [
+  {
+    name: 'search_inventory',
+    description: 'Search watch inventory by brand, price range, category, or keywords.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        brand: { type: 'string', description: 'Brand name to filter by' },
+        minPrice: { type: 'number', description: 'Minimum price in PHP' },
+        maxPrice: { type: 'number', description: 'Maximum price in PHP' },
+        category: { type: 'string', description: 'Watch category' },
+        condition: { type: 'string', description: 'Condition filter' },
+        query: { type: 'string', description: 'Free-text search' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_watch_details',
+    description: 'Get detailed info about a specific watch by slug or reference.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string', description: 'Watch slug' },
+        reference: { type: 'string', description: 'Reference number' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'create_inquiry',
+    description: 'Create an inquiry/lead when customer shares contact info or shows buying intent.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Customer name' },
+        email: { type: 'string', description: 'Customer email' },
+        phone: { type: 'string', description: 'Customer phone' },
+        message: { type: 'string', description: 'Interest summary with intent level' },
+        watchId: { type: 'string', description: 'Specific watch ID' },
+      },
+      required: ['name', 'message'],
+    },
+  },
+  {
+    name: 'get_whatsapp_link',
+    description: 'Generate WhatsApp link to message Sherard directly.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        watchName: { type: 'string' },
+        reference: { type: 'string' },
+        price: { type: 'string' },
+      },
+      required: [],
+    },
+  },
+];
+
+async function executeChatTool(name, input, watches) {
+  switch (name) {
+    case 'search_inventory': {
+      let results = watches.filter(w => (w.status || 'AVAILABLE') !== 'SOLD');
+      if (input.brand) results = results.filter(w => w.brand.toLowerCase().includes(input.brand.toLowerCase()));
+      if (input.minPrice) results = results.filter(w => (w.pricePHP || w.price_php) >= input.minPrice);
+      if (input.maxPrice) results = results.filter(w => (w.pricePHP || w.price_php) <= input.maxPrice);
+      if (input.category) results = results.filter(w => w.category?.toLowerCase() === input.category.toLowerCase());
+      if (input.condition) results = results.filter(w => w.condition?.toLowerCase() === input.condition.toLowerCase());
+      if (input.query) {
+        const q = input.query.toLowerCase();
+        results = results.filter(w =>
+          w.brand.toLowerCase().includes(q) || w.model.toLowerCase().includes(q) ||
+          w.name?.toLowerCase().includes(q) || w.reference.toLowerCase().includes(q) ||
+          w.description?.toLowerCase().includes(q)
+        );
+      }
+      if (results.length === 0) return JSON.stringify({ found: 0, message: 'No matches. Suggest broader criteria or sourcing request.' });
+      return JSON.stringify({
+        found: results.length,
+        watches: results.map(w => ({
+          slug: w.slug, id: w.id, brand: w.brand, model: w.model, reference: w.reference,
+          name: w.name, pricePHP: w.pricePHP || w.price_php, condition: w.condition,
+          boxPapers: w.boxPapers || (w.box && w.papers ? 'Box & Papers' : 'None'),
+          tier: w.tier, category: w.category, status: w.status || 'AVAILABLE', url: `/watch/${w.slug}`,
+        })),
+      });
+    }
+    case 'get_watch_details': {
+      const watch = watches.find(w => (input.slug && w.slug === input.slug) || (input.reference && w.reference === input.reference));
+      if (!watch) return JSON.stringify({ error: 'Watch not found.' });
+      return JSON.stringify({
+        slug: watch.slug, id: watch.id, brand: watch.brand, model: watch.model,
+        reference: watch.reference, name: watch.name, pricePHP: watch.pricePHP || watch.price_php,
+        retailPricePHP: watch.retailPricePHP || null, condition: watch.condition,
+        boxPapers: watch.boxPapers || (watch.box && watch.papers ? 'Box & Papers' : 'None'),
+        year: watch.year || null, tier: watch.tier, category: watch.category,
+        description: watch.description, specifications: watch.specifications,
+        marketTrend: watch.marketTrend || 'STABLE', status: watch.status || 'AVAILABLE',
+        url: `/watch/${watch.slug}`, imageCount: watch.images?.length || 0, hasVideo: !!watch.video,
+      });
+    }
+    case 'create_inquiry': {
+      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+      const rawName = String(input.name || 'Chat Customer').slice(0, 200).trim();
+      const rawEmail = String(input.email || '').slice(0, 200).trim();
+      const rawPhone = input.phone ? String(input.phone).slice(0, 30).replace(/[^\d+\s()-]/g, '').trim() : null;
+      const rawMessage = String(input.message || '').slice(0, 2000);
+      const validWatchId = input.watchId && watches.find(w => w.id === input.watchId) ? input.watchId : null;
+
+      const inquiry = {
+        id: crypto.randomUUID(),
+        name: rawName || 'Chat Customer',
+        email: emailRx.test(rawEmail) ? rawEmail : '',
+        phone: rawPhone || null,
+        message: `[AI CHATBOT LEAD] ${rawMessage}`,
+        watchId: validWatchId,
+        watch: null,
+        source: 'AI_CHAT',
+        status: 'NEW',
+        createdAt: new Date().toISOString(),
+      };
+      if (validWatchId) {
+        const w = watches.find(w => w.id === validWatchId);
+        if (w) inquiry.watch = { id: w.id, slug: w.slug, brand: w.brand, model: w.model, reference: w.reference, pricePHP: w.pricePHP || w.price_php, images: w.images };
+      }
+      try {
+        const inquiries = await getInquiries();
+        inquiries.push(inquiry);
+        await saveInquiries(inquiries);
+        console.log(`✅ AI Chat lead created: ${inquiry.name} — ${rawMessage.slice(0, 80)}`);
+      } catch (e) { console.error('Failed to save chat inquiry:', e?.message || e); }
+
+      sendInquiryNotification(inquiry).catch((err) =>
+        console.error('[email] chat-lead notification failed:', err?.message || err)
+      );
+
+      return JSON.stringify({ success: true, id: inquiry.id, message: `Inquiry created for ${inquiry.name}. Sherard will be notified.` });
+    }
+    case 'get_whatsapp_link': {
+      const number = '639123456789';
+      const parts = [input.watchName, input.reference ? `(Ref: ${input.reference})` : '', input.price ? `- ${input.price}` : ''].filter(Boolean).join(' ');
+      const msg = parts ? `Hi Sherard! I'm interested in the ${parts}. I was chatting on your website.` : `Hi Sherard! I'm browsing Manila Watch Atelier.`;
+      return JSON.stringify({ url: `https://wa.me/${number}?text=${encodeURIComponent(msg)}` });
+    }
+    default:
+      return JSON.stringify({ error: `Unknown tool: ${name}` });
+  }
+}
+
+app.post('/api/chat', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || apiKey.includes('YOUR_KEY_HERE')) {
+    return res.status(503).json({ error: 'AI chatbot not configured. Set ANTHROPIC_API_KEY in .env' });
+  }
+
+  try {
+    const { messages, sessionId } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+    if (messages.length > 40) {
+      return res.status(400).json({ error: 'Conversation too long. Please start a new chat.' });
+    }
+    let totalChars = 0;
+    for (const msg of messages) {
+      if (!msg || (msg.role !== 'user' && msg.role !== 'assistant')) {
+        return res.status(400).json({ error: 'Each message must have role "user" or "assistant".' });
+      }
+      if (typeof msg.content !== 'string') {
+        return res.status(400).json({ error: 'Message content must be a string.' });
+      }
+      if (msg.content.length > 5000) {
+        return res.status(400).json({ error: 'Message too long. Maximum 5000 characters.' });
+      }
+      totalChars += msg.content.length;
+    }
+    if (totalChars > 50000) {
+      return res.status(400).json({ error: 'Conversation too long. Please start a new chat.' });
+    }
+
+    // Rate limit by IP first (not client-controlled sessionId): 30 per 10 min + 200 per day hard ceiling.
+    const clientIP = (req.ip || req.socket?.remoteAddress || 'unknown').toString();
+    const rateLimitKey = `chat:${clientIP}`;
+    if (isRateLimited(rateLimitKey, 30, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: "You're chatting too fast. Please wait a moment." });
+    }
+    if (isRateLimited(`chat-day:${clientIP}`, 200, 24 * 60 * 60 * 1000)) {
+      return res.status(429).json({ error: 'Daily chat limit reached. Please try again tomorrow or contact Sherard directly.' });
+    }
+
+    const recentMessages = messages.slice(-20);
+    const watches = await getWatches();
+    const systemPrompt = buildChatSystemPrompt(watches);
+    const client = new Anthropic({ apiKey });
+
+    let currentMessages = recentMessages.map(m => ({ role: m.role, content: m.content }));
+    let finalText = '';
+    let toolCallCount = 0;
+
+    while (toolCallCount < 5) {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: chatTools,
+        messages: currentMessages,
+      });
+
+      const textBlocks = response.content.filter(b => b.type === 'text');
+      const toolBlocks = response.content.filter(b => b.type === 'tool_use');
+
+      if (textBlocks.length > 0) finalText = textBlocks.map(b => b.text).join('');
+      if (toolBlocks.length === 0 || response.stop_reason !== 'tool_use') break;
+
+      const toolResults = [];
+      for (const block of toolBlocks) {
+        toolCallCount++;
+        const result = await executeChatTool(block.name, block.input, watches);
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+      }
+
+      currentMessages = [
+        ...currentMessages,
+        { role: 'assistant', content: response.content },
+        { role: 'user', content: toolResults },
+      ];
+    }
+
+    console.log(`💬 Chat response generated (${toolCallCount} tool calls)`);
+    res.json({ reply: finalText, sessionId: sessionId || crypto.randomUUID() });
+  } catch (error) {
+    console.error('Chat API error:', error.message || error);
+    if (error?.status === 401) return res.status(503).json({ error: 'AI service auth failed. Check ANTHROPIC_API_KEY.' });
+    if (error?.status === 429) return res.status(503).json({ error: 'AI service busy. Try again shortly.' });
+    res.status(500).json({ error: 'Failed to process chat message' });
   }
 });
 

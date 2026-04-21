@@ -5,6 +5,10 @@
   "installCommand": "npm install",
   "framework": null,
   "functions": {
+    "api/chat.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
     "api/**/*.{js,ts}": {
       "memory": 1024,
       "maxDuration": 10
