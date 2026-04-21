@@ -55,6 +55,9 @@ export const watchCreateSchema = z.object({
 export const watchUpdateSchema = watchCreateSchema.partial();
 
 export const inquiryStatusSchema = z.object({
-  status: z.enum(['NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED']),
+  status: z.enum(['NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED']).optional(),
   lastContactedAt: z.string().datetime().optional(),
+  notes: z.string().max(5000).optional(),
+}).refine((v) => v.status !== undefined || v.lastContactedAt !== undefined || v.notes !== undefined, {
+  message: 'At least one field (status, lastContactedAt, or notes) is required',
 });

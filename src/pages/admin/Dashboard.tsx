@@ -5,7 +5,8 @@ import {
   Package, DollarSign, TrendingUp, MessageSquare, LogOut, Plus, Edit2, Trash2,
   Eye, Search, Filter, ChevronDown, ChevronUp, Mail, Phone, Clock,
   X, RefreshCw, AlertCircle, Upload, Image as ImageIcon, Save, Loader2,
-  BarChart3, Download, CheckSquare, Square, GripVertical, FileText, Users
+  BarChart3, Download, CheckSquare, Square, GripVertical, FileText, Users,
+  MessageCircle, ExternalLink, Bot, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -83,8 +84,10 @@ interface Inquiry {
   phone: string | null;
   message: string;
   status: string; // NEW, CONTACTED, FOLLOW_UP, CLOSED
+  source?: string; // FORM, AI_CHAT, WHATSAPP
   createdAt: string;
   lastContactedAt?: string;
+  notes?: string;
   watch: {
     id: string;
     slug: string;
@@ -95,6 +98,8 @@ interface Inquiry {
     images: string[];
   } | null;
 }
+
+type InquirySort = 'newest' | 'oldest' | 'status' | 'last_contacted';
 
 type ActiveTab = 'watches' | 'inquiries' | 'analytics';
 type InquiryFilter = 'ALL' | 'NEW' | 'CONTACTED' | 'FOLLOW_UP' | 'CLOSED';
@@ -265,15 +270,29 @@ function csvRowsToWatchObjects(rows: string[][]): any[] {
 }
 
 function exportInquiriesCSV(inquiries: Inquiry[]) {
-  const headers = ['Name', 'Email', 'Phone', 'Message', 'Watch', 'Date', 'Status'];
+  // Full-fidelity export so Sherard can move the data into a spreadsheet CRM
+  // or share it with an accountant. ISO timestamps so re-import / sort works.
+  const headers = [
+    'ID', 'Name', 'Email', 'Phone', 'Message',
+    'Watch Brand', 'Watch Model', 'Watch Reference', 'Watch Slug', 'Watch Price (PHP)',
+    'Status', 'Source', 'Created At (ISO)', 'Last Contacted At (ISO)', 'Notes',
+  ];
   const rows = inquiries.map((inq) => [
+    escapeCSV(inq.id),
     escapeCSV(inq.name),
     escapeCSV(inq.email),
     escapeCSV(inq.phone),
     escapeCSV(inq.message),
-    escapeCSV(inq.watch ? `${inq.watch.brand} ${inq.watch.model}` : 'General'),
-    escapeCSV(new Date(inq.createdAt).toLocaleDateString('en-PH')),
+    escapeCSV(inq.watch?.brand ?? ''),
+    escapeCSV(inq.watch?.model ?? ''),
+    escapeCSV(inq.watch?.reference ?? ''),
+    escapeCSV(inq.watch?.slug ?? ''),
+    escapeCSV(inq.watch?.pricePHP ?? ''),
     escapeCSV(inq.status),
+    escapeCSV(inq.source ?? 'FORM'),
+    escapeCSV(inq.createdAt ?? ''),
+    escapeCSV(inq.lastContactedAt ?? ''),
+    escapeCSV(inq.notes ?? ''),
   ].join(','));
   const csv = [headers.join(','), ...rows].join('\n');
   downloadCSV(`inquiries-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
@@ -380,10 +399,17 @@ export function AdminDashboard() {
   const [inquiriesLoading, setInquiriesLoading] = useState(true);
   const [inquiriesError, setInquiriesError] = useState<string | null>(null);
   const [inquiryFilter, setInquiryFilter] = useState<InquiryFilter>('ALL');
+  const [inquirySearch, setInquirySearch] = useState('');
+  const [inquirySort, setInquirySort] = useState<InquirySort>('newest');
   const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
 
-  // CRM notes state (per-inquiry, stored in localStorage)
+  // CRM notes — server-persisted per inquiry. Debounced save queue.
   const [crmNotes, setCrmNotes] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({});
+  // Per-inquiry save state: 'saved' (green), 'error' (red), or undefined (idle).
+  // Shown alongside the notes textarea so admins know if their edit persisted.
+  const [noteSaveState, setNoteSaveState] = useState<Record<string, 'saved' | 'error'>>({});
+  const notesDebounceRef = useRef<Record<string, number>>({});
 
   // -------------------------------------------------------------------------
   // Data fetching
@@ -418,12 +444,18 @@ export function AdminDashboard() {
       const loaded: Inquiry[] = Array.isArray(data) ? data : data.inquiries ?? [];
       setInquiries(loaded);
 
-      // Load CRM notes from localStorage
+      // Hydrate notes from the inquiry objects (server-persisted).
+      // Fall back to legacy localStorage entries if the server record is empty
+      // — covers the transition from the old per-browser notes system.
       const notesMap: Record<string, string> = {};
-      loaded.forEach((inq) => {
-        const saved = localStorage.getItem(`manila-crm-notes-${inq.id}`);
-        if (saved) notesMap[inq.id] = saved;
-      });
+      for (const inq of loaded) {
+        if (inq.notes && inq.notes.length > 0) {
+          notesMap[inq.id] = inq.notes;
+        } else {
+          const legacy = localStorage.getItem(`manila-crm-notes-${inq.id}`);
+          if (legacy) notesMap[inq.id] = legacy;
+        }
+      }
       setCrmNotes(notesMap);
     } catch (err: any) {
       setInquiriesError(err.message ?? 'Failed to load inquiries');
@@ -481,11 +513,100 @@ export function AdminDashboard() {
   };
 
   // -------------------------------------------------------------------------
-  // CRM Notes
+  // CRM Notes — now server-persisted (syncs across admins/devices).
+  // Debounced save: 600ms after the admin stops typing.
   // -------------------------------------------------------------------------
   const handleCrmNoteChange = (id: string, note: string) => {
+    // Optimistic local update (and legacy localStorage as offline fallback).
     setCrmNotes((prev) => ({ ...prev, [id]: note }));
     localStorage.setItem(`manila-crm-notes-${id}`, note);
+    // Clear any prior saved/error indicator — we're typing again.
+    setNoteSaveState((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    // Debounce the server write so we don't fire on every keystroke.
+    const existing = notesDebounceRef.current[id];
+    if (existing) window.clearTimeout(existing);
+
+    notesDebounceRef.current[id] = window.setTimeout(async () => {
+      delete notesDebounceRef.current[id];
+      setSavingNotes((prev) => ({ ...prev, [id]: true }));
+      try {
+        const res = await fetch(`${API_BASE_URL}/inquiries/${id}`, {
+          method: 'PUT',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: note }),
+        });
+        if (!res.ok) throw new Error(`Save failed (${res.status})`);
+        setInquiries((prev) => prev.map((inq) => (inq.id === id ? { ...inq, notes: note } : inq)));
+        setNoteSaveState((prev) => ({ ...prev, [id]: 'saved' }));
+        // Auto-clear the "Saved" pill after 2s so it doesn't linger.
+        window.setTimeout(() => {
+          setNoteSaveState((prev) => {
+            if (prev[id] !== 'saved') return prev;
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+        }, 2000);
+      } catch (err) {
+        console.error('[crm-notes] server save failed:', err);
+        setNoteSaveState((prev) => ({ ...prev, [id]: 'error' }));
+      } finally {
+        setSavingNotes((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+    }, 600);
+  };
+
+  // -------------------------------------------------------------------------
+  // CRM quick-action helpers
+  // -------------------------------------------------------------------------
+  const getWhatsAppReplyLink = (inq: Inquiry): string | null => {
+    const raw = (inq.phone || '').replace(/[^\d+]/g, '');
+    if (!raw || raw.length < 8) return null;
+    // Assume PH numbers without + prefix start with 09 → rewrite to 639
+    const normalized = raw.startsWith('+')
+      ? raw.slice(1)
+      : raw.startsWith('0')
+        ? '63' + raw.slice(1)
+        : raw;
+    const watchCtx = inq.watch ? ` about the ${inq.watch.brand} ${inq.watch.model} (Ref. ${inq.watch.reference})` : '';
+    const msg = encodeURIComponent(
+      `Hi ${inq.name.split(' ')[0]}, this is Sherard from Manila Watch Atelier${watchCtx}. Thanks for reaching out — happy to help.`
+    );
+    return `https://wa.me/${normalized}?text=${msg}`;
+  };
+
+  const getEmailReplyLink = (inq: Inquiry): string => {
+    const watchCtx = inq.watch
+      ? ` — ${inq.watch.brand} ${inq.watch.model} (Ref. ${inq.watch.reference})`
+      : '';
+    const subject = encodeURIComponent(`Re: Your inquiry${watchCtx}`);
+    const body = encodeURIComponent(
+      `Hi ${inq.name.split(' ')[0]},\n\nThanks for reaching out to Manila Watch Atelier. ` +
+        `I'd be delighted to discuss${watchCtx ? ` the ${inq.watch?.brand} ${inq.watch?.model}` : ' your inquiry'} further.\n\n` +
+        `Best,\nSherard W Ng`
+    );
+    return `mailto:${encodeURIComponent(inq.email)}?subject=${subject}&body=${body}`;
+  };
+
+  const getAgeString = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const diffMs = Date.now() - new Date(isoDate).getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours < 1) return 'just now';
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 14) return `${days}d ago`;
+    const weeks = Math.floor(days / 7);
+    return `${weeks}w ago`;
   };
 
   // -------------------------------------------------------------------------
@@ -916,10 +1037,43 @@ export function AdminDashboard() {
   const brands = ['All', ...Array.from(new Set(watches.map((w) => w.brand)))];
   const tiers = ['All', 'A', 'B', 'C'];
 
-  // Filtered inquiries
-  const filteredInquiries = inquiries.filter((inq) =>
-    inquiryFilter === 'ALL' ? true : inq.status === inquiryFilter
-  );
+  // Filtered + searched + sorted inquiries
+  const inquirySearchLower = inquirySearch.trim().toLowerCase();
+  const filteredInquiries = inquiries
+    .filter((inq) => (inquiryFilter === 'ALL' ? true : inq.status === inquiryFilter))
+    .filter((inq) => {
+      if (!inquirySearchLower) return true;
+      return (
+        inq.name.toLowerCase().includes(inquirySearchLower) ||
+        inq.email.toLowerCase().includes(inquirySearchLower) ||
+        (inq.phone ?? '').toLowerCase().includes(inquirySearchLower) ||
+        (inq.message ?? '').toLowerCase().includes(inquirySearchLower) ||
+        (inq.watch?.brand ?? '').toLowerCase().includes(inquirySearchLower) ||
+        (inq.watch?.model ?? '').toLowerCase().includes(inquirySearchLower) ||
+        (inq.watch?.reference ?? '').toLowerCase().includes(inquirySearchLower)
+      );
+    })
+    .sort((a, b) => {
+      switch (inquirySort) {
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'status': {
+          // NEW first (urgent), then CONTACTED, FOLLOW_UP, CLOSED
+          const order: Record<string, number> = { NEW: 0, CONTACTED: 1, FOLLOW_UP: 2, CLOSED: 3 };
+          const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99);
+          if (diff !== 0) return diff;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        case 'last_contacted': {
+          const aTs = a.lastContactedAt ? new Date(a.lastContactedAt).getTime() : 0;
+          const bTs = b.lastContactedAt ? new Date(b.lastContactedAt).getTime() : 0;
+          return bTs - aTs;
+        }
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
   // Analytics data
   const storedViews = getStoredViews();
@@ -1592,51 +1746,104 @@ export function AdminDashboard() {
         {/* ================================================================ */}
         {activeTab === 'inquiries' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-            {/* Filters */}
+            {/* Filters + Search + Sort */}
             <div className="rounded-xl p-6 shadow-sm border mb-6" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="flex gap-2 flex-wrap">
-                  {(['ALL', 'NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED'] as InquiryFilter[]).map((status) => (
+              <div className="flex flex-col gap-4">
+                {/* Status filter pills */}
+                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                  <div className="flex gap-2 flex-wrap">
+                    {(['ALL', 'NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED'] as InquiryFilter[]).map((status) => (
+                      <button
+                        type="button"
+                        key={status}
+                        onClick={() => setInquiryFilter(status)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          inquiryFilter === status
+                            ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                        }`}
+                      >
+                        {status.replace('_', ' ')}
+                        {status === 'NEW' && newInquiriesCount > 0 && (
+                          <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                            {newInquiriesCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      key={status}
-                      onClick={() => setInquiryFilter(status)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        inquiryFilter === status
-                          ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
-                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                      }`}
+                      onClick={() => exportInquiriesCSV(filteredInquiries)}
+                      className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
+                      title="Export inquiries as CSV"
                     >
-                      {status.replace('_', ' ')}
-                      {status === 'NEW' && newInquiriesCount > 0 && (
-                        <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
-                          {newInquiriesCount}
-                        </span>
-                      )}
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm">Export</span>
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={fetchInquiries}
+                      className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                      <span className="text-sm">Refresh</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => exportInquiriesCSV(filteredInquiries)}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
-                    title="Export inquiries as CSV"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="text-sm">Export</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fetchInquiries}
-                    className="flex items-center gap-2 px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 transition-colors"
-                    title="Refresh"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${inquiriesLoading ? 'animate-spin' : ''}`} />
-                    <span className="text-sm">Refresh</span>
-                  </button>
+                {/* Search + Sort row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={inquirySearch}
+                      onChange={(e) => setInquirySearch(e.target.value)}
+                      placeholder="Search by name, email, phone, message, or watch…"
+                      aria-label="Search inquiries"
+                      className="w-full pl-10 pr-10 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                    />
+                    {inquirySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setInquirySearch('')}
+                        aria-label="Clear search"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="inquiry-sort" className="text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+                      Sort:
+                    </label>
+                    <select
+                      id="inquiry-sort"
+                      value={inquirySort}
+                      onChange={(e) => setInquirySort(e.target.value as InquirySort)}
+                      className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                    >
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="status">Status (NEW first)</option>
+                      <option value="last_contacted">Last contacted</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Search summary */}
+                {(inquirySearch || inquiryFilter !== 'ALL') && (
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400" aria-live="polite">
+                    Showing {filteredInquiries.length} of {inquiries.length} inquiries
+                    {inquirySearch && <> matching <span className="text-[#D4AF37]">"{inquirySearch}"</span></>}
+                    {inquiryFilter !== 'ALL' && <> with status <span className="text-[#D4AF37]">{inquiryFilter.replace('_', ' ')}</span></>}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1685,7 +1892,7 @@ export function AdminDashboard() {
                           Date
                         </th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                          Details
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -1698,7 +1905,32 @@ export function AdminDashboard() {
                             transition={{ delay: index * 0.03 }}
                             className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                           >
-                            <td className="px-6 py-4 text-sm font-medium text-neutral-900">{inquiry.name}</td>
+                            <td className="px-6 py-4 text-sm font-medium text-neutral-900">
+                              <div className="flex flex-col gap-1">
+                                <span>{inquiry.name}</span>
+                                {inquiry.source === 'AI_CHAT' && (
+                                  <span className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-medium uppercase tracking-wide">
+                                    <Bot className="w-3 h-3" />
+                                    AI Chat
+                                  </span>
+                                )}
+                                {inquiry.source === 'WHATSAPP' && (
+                                  <span className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium uppercase tracking-wide">
+                                    <MessageCircle className="w-3 h-3" />
+                                    WhatsApp
+                                  </span>
+                                )}
+                                {inquiry.status === 'NEW' && (() => {
+                                  const hours = (Date.now() - new Date(inquiry.createdAt).getTime()) / (1000 * 60 * 60);
+                                  return hours > 24 ? (
+                                    <span className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-medium uppercase tracking-wide">
+                                      <Sparkles className="w-3 h-3" />
+                                      Needs reply
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">
                               <a href={`mailto:${inquiry.email}`} className="hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5">
                                 <Mail className="w-3.5 h-3.5" />
@@ -1741,30 +1973,74 @@ export function AdminDashboard() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm text-neutral-600 dark:text-neutral-400">
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" />
-                                {new Date(inquiry.createdAt).toLocaleDateString('en-PH', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
+                              <span
+                                className="flex items-center gap-1.5"
+                                title={new Date(inquiry.createdAt).toLocaleString('en-PH', {
+                                  year: 'numeric', month: 'short', day: 'numeric',
+                                  hour: '2-digit', minute: '2-digit',
                                 })}
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                                {getAgeString(inquiry.createdAt)}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-center">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedInquiry(expandedInquiry === inquiry.id ? null : inquiry.id)
-                                }
-                                className="p-2 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-                                title="Toggle details"
-                              >
-                                {expandedInquiry === inquiry.id ? (
-                                  <ChevronUp className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4" />
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-center gap-1">
+                                {(() => {
+                                  const waLink = getWhatsAppReplyLink(inquiry);
+                                  return waLink ? (
+                                    <a
+                                      href={waLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                      title="Reply on WhatsApp"
+                                      aria-label={`Reply to ${inquiry.name} on WhatsApp`}
+                                    >
+                                      <MessageCircle className="w-4 h-4" />
+                                    </a>
+                                  ) : null;
+                                })()}
+                                <a
+                                  href={getEmailReplyLink(inquiry)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                  title="Reply by email"
+                                  aria-label={`Reply to ${inquiry.name} by email`}
+                                >
+                                  <Mail className="w-4 h-4" />
+                                </a>
+                                {inquiry.watch && (
+                                  <a
+                                    href={`/watch/${inquiry.watch.slug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-2 text-[#D4AF37] hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                                    title="View watch page"
+                                    aria-label={`View ${inquiry.watch.brand} ${inquiry.watch.model} page`}
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
                                 )}
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedInquiry(expandedInquiry === inquiry.id ? null : inquiry.id)
+                                  }
+                                  className="p-2 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                                  title="Toggle details"
+                                  aria-label={expandedInquiry === inquiry.id ? 'Hide details' : 'Show details'}
+                                  aria-expanded={expandedInquiry === inquiry.id}
+                                >
+                                  {expandedInquiry === inquiry.id ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
                             </td>
                           </motion.tr>
 
@@ -1861,18 +2137,43 @@ export function AdminDashboard() {
 
                                     {/* CRM: Notes */}
                                     <div>
-                                      <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">
-                                        CRM Notes
-                                      </h4>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                                          CRM Notes
+                                        </h4>
+                                        {savingNotes[inquiry.id] && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-neutral-500">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            Saving…
+                                          </span>
+                                        )}
+                                        {!savingNotes[inquiry.id] && noteSaveState[inquiry.id] === 'saved' && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                            <Save className="w-3 h-3" />
+                                            Saved
+                                          </span>
+                                        )}
+                                        {!savingNotes[inquiry.id] && noteSaveState[inquiry.id] === 'error' && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 dark:text-red-400">
+                                            <AlertCircle className="w-3 h-3" />
+                                            Save failed — will retry
+                                          </span>
+                                        )}
+                                      </div>
                                       <textarea
                                         value={crmNotes[inquiry.id] ?? ''}
                                         onChange={(e) => handleCrmNoteChange(inquiry.id, e.target.value)}
                                         rows={4}
                                         placeholder="Add notes about this customer..."
-                                        className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-vertical bg-white dark:bg-neutral-800 text-neutral-900 placeholder:text-neutral-400"
+                                        aria-label={`Notes for inquiry from ${inquiry.name}`}
+                                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent resize-vertical bg-white dark:bg-neutral-800 text-neutral-900 placeholder:text-neutral-400 ${
+                                          noteSaveState[inquiry.id] === 'error'
+                                            ? 'border-red-400 dark:border-red-500'
+                                            : 'border-neutral-300 dark:border-neutral-600'
+                                        }`}
                                       />
                                       <p className="text-xs text-neutral-400 mt-1">
-                                        Notes are saved automatically to your browser
+                                        Notes sync to the server automatically. A local copy is kept in this browser as a backup.
                                       </p>
                                     </div>
                                   </div>

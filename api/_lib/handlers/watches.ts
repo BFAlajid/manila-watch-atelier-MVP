@@ -161,11 +161,13 @@ export const createWatch: Handler = async (ctx) => {
   watches.push(watch);
 
   let saveOk = true;
+  let saveErr: string | undefined;
   try {
     await saveWatches(watches);
   } catch (err: any) {
     saveOk = false;
-    console.error('[watches/create] saveWatches failed:', err?.message || err);
+    saveErr = err?.message || String(err);
+    console.error('[watches/create] saveWatches failed:', saveErr);
   }
 
   auditAdminAction({
@@ -176,6 +178,13 @@ export const createWatch: Handler = async (ctx) => {
     ok: saveOk,
     details: { id: watch.id, brand: watch.brand, model: watch.model, pricePHP: watch.pricePHP },
   });
+
+  if (!saveOk) {
+    return {
+      status: 500,
+      body: { error: 'Watch created in memory but persistence failed. Please retry.', detail: saveErr },
+    };
+  }
 
   return { status: 201, body: { success: true, watch } };
 };
@@ -207,11 +216,13 @@ export const updateWatch: Handler = async (ctx) => {
   };
 
   let saveOk = true;
+  let saveErr: string | undefined;
   try {
     await saveWatches(watches);
   } catch (err: any) {
     saveOk = false;
-    console.error('[watches PUT] saveWatches failed:', err?.message || err);
+    saveErr = err?.message || String(err);
+    console.error('[watches PUT] saveWatches failed:', saveErr);
   }
 
   auditAdminAction({
@@ -222,6 +233,13 @@ export const updateWatch: Handler = async (ctx) => {
     ok: saveOk,
     details: { changedFields: Object.keys(parsed.data) },
   });
+
+  if (!saveOk) {
+    return {
+      status: 500,
+      body: { error: 'Update accepted but persistence failed. Please retry.', detail: saveErr },
+    };
+  }
 
   return { status: 200, body: { success: true, watch: watches[index] } };
 };
@@ -318,11 +336,13 @@ export const bulkImportWatches: Handler = async (ctx) => {
   }
 
   let saveOk = true;
+  let saveErr: string | undefined;
   try {
     await saveWatches(watches);
   } catch (err: any) {
     saveOk = false;
-    console.error('[watches/bulk-import] saveWatches failed:', err?.message || err);
+    saveErr = err?.message || String(err);
+    console.error('[watches/bulk-import] saveWatches failed:', saveErr);
   }
 
   auditAdminAction({
@@ -339,10 +359,24 @@ export const bulkImportWatches: Handler = async (ctx) => {
     },
   });
 
+  if (!saveOk) {
+    return {
+      status: 500,
+      body: {
+        error: 'Import batch processed but persistence failed. Please retry.',
+        detail: saveErr,
+        total: body.watches.length,
+        created,
+        updated,
+        errors,
+      },
+    };
+  }
+
   return {
     status: 200,
     body: {
-      success: saveOk,
+      success: true,
       total: body.watches.length,
       created,
       updated,
@@ -366,11 +400,13 @@ export const deleteWatch: Handler = async (ctx) => {
   watches[index].status = 'SOLD';
 
   let saveOk = true;
+  let saveErr: string | undefined;
   try {
     await saveWatches(watches);
   } catch (err: any) {
     saveOk = false;
-    console.error('[watches DELETE] saveWatches failed:', err?.message || err);
+    saveErr = err?.message || String(err);
+    console.error('[watches DELETE] saveWatches failed:', saveErr);
   }
 
   auditAdminAction({
@@ -380,6 +416,13 @@ export const deleteWatch: Handler = async (ctx) => {
     ip: ctx.clientIP,
     ok: saveOk,
   });
+
+  if (!saveOk) {
+    return {
+      status: 500,
+      body: { error: 'Soft-delete accepted but persistence failed. Please retry.', detail: saveErr },
+    };
+  }
 
   return { status: 200, body: { success: true, status: 'SOLD' } };
 };

@@ -130,11 +130,13 @@ export const updateInquiryStatus: Handler = async (ctx) => {
 
   inquiries[index] = { ...inquiries[index], ...parsed.data };
   let saveOk = true;
+  let saveErr: string | undefined;
   try {
     await saveInquiries(inquiries);
   } catch (err: any) {
     saveOk = false;
-    console.error('[inquiries/:id] saveInquiries failed:', err?.message || err);
+    saveErr = err?.message || String(err);
+    console.error('[inquiries/:id] saveInquiries failed:', saveErr);
   }
 
   auditAdminAction({
@@ -143,8 +145,21 @@ export const updateInquiryStatus: Handler = async (ctx) => {
     resource: `inquiry:${id}`,
     ip: ctx.clientIP,
     ok: saveOk,
-    details: { newStatus: parsed.data.status },
+    details: {
+      newStatus: parsed.data.status,
+      notesUpdated: parsed.data.notes !== undefined,
+      lastContactedUpdated: parsed.data.lastContactedAt !== undefined,
+    },
   });
+
+  // Surface persistence failures to the admin so they know to retry, instead
+  // of reporting success when the Redis write silently dropped.
+  if (!saveOk) {
+    return {
+      status: 500,
+      body: { error: 'Update accepted but persistence failed. Please retry.', detail: saveErr },
+    };
+  }
 
   return { status: 200, body: { success: true, inquiry: inquiries[index] } };
 };
