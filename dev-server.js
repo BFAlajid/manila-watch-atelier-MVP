@@ -1,7 +1,12 @@
 // Development API server — thin Express wrapper around the shared handlers.
 // In production, Vercel serverless functions in api/ handle these same routes.
 // All business logic lives in api/_lib/handlers/*.
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+// Load .env first, then .env.local (overrides). Matches Vercel/Next.js
+// convention so `vercel env pull .env.local` Just Works without manual copy.
+loadEnv();
+loadEnv({ path: '.env.local', override: true });
+loadEnv({ path: '.env.development.local', override: true });
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';

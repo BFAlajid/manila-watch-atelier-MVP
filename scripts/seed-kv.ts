@@ -10,7 +10,10 @@
 //   KV_REST_API_URL
 //   KV_REST_API_TOKEN
 
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+loadEnv();
+loadEnv({ path: '.env.local', override: true });
+loadEnv({ path: '.env.development.local', override: true });
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Redis } from '@upstash/redis';
