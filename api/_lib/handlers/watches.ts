@@ -12,7 +12,7 @@ function pickString(v: string | string[] | undefined): string | undefined {
 export const listWatches: Handler = async (ctx) => {
   if (ctx.method !== 'GET') return { status: 405, body: { error: 'Method not allowed' } };
 
-  let watches = getWatches();
+  let watches = await getWatches();
 
   const brand = pickString(ctx.query.brand);
   const minPrice = pickString(ctx.query.minPrice);
@@ -77,11 +77,12 @@ export const getWatchBySlug: Handler = async (ctx) => {
   const slug = pickString(ctx.query.slug);
   if (!slug) return { status: 400, body: { error: 'Slug is required' } };
 
-  const watches = getWatches();
+  const watches = await getWatches();
   const watch = watches.find((w) => w.slug === slug);
   if (!watch) return { status: 404, body: { error: 'Watch not found' } };
 
-  // Transient increment (the Vercel wrapper can't persist; intentional no-op on prod).
+  // Transient increment (not persisted back — avoids a round-trip write on every
+  // view. If we want real view counts later, do a batched async increment.)
   watch.viewCount = (watch.viewCount || 0) + 1;
   return { status: 200, body: watch };
 };
@@ -100,7 +101,7 @@ export const createWatch: Handler = async (ctx) => {
   }
 
   const data = parsed.data;
-  const watches = getWatches();
+  const watches = await getWatches();
   if (watches.find((w) => w.slug === data.slug)) {
     return { status: 409, body: { error: 'A watch with this slug already exists' } };
   }
@@ -147,9 +148,9 @@ export const createWatch: Handler = async (ctx) => {
   watches.push(watch);
 
   try {
-    saveWatches(watches);
+    await saveWatches(watches);
   } catch (err: any) {
-    console.error('[watches/create] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+    console.error('[watches/create] saveWatches failed:', err?.message || err);
   }
 
   return { status: 201, body: { success: true, watch } };
@@ -171,7 +172,7 @@ export const updateWatch: Handler = async (ctx) => {
     };
   }
 
-  const watches = getWatches();
+  const watches = await getWatches();
   const index = watches.findIndex((w) => w.slug === slug);
   if (index === -1) return { status: 404, body: { error: 'Watch not found' } };
 
@@ -182,9 +183,9 @@ export const updateWatch: Handler = async (ctx) => {
   };
 
   try {
-    saveWatches(watches);
+    await saveWatches(watches);
   } catch (err: any) {
-    console.error('[watches PUT] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+    console.error('[watches PUT] saveWatches failed:', err?.message || err);
   }
 
   return { status: 200, body: { success: true, watch: watches[index] } };
@@ -198,16 +199,16 @@ export const deleteWatch: Handler = async (ctx) => {
   const slug = pickString(ctx.query.slug);
   if (!slug) return { status: 400, body: { error: 'Slug is required' } };
 
-  const watches = getWatches();
+  const watches = await getWatches();
   const index = watches.findIndex((w) => w.slug === slug);
   if (index === -1) return { status: 404, body: { error: 'Watch not found' } };
 
   watches[index].status = 'SOLD';
 
   try {
-    saveWatches(watches);
+    await saveWatches(watches);
   } catch (err: any) {
-    console.error('[watches DELETE] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+    console.error('[watches DELETE] saveWatches failed:', err?.message || err);
   }
 
   return { status: 200, body: { success: true, status: 'SOLD' } };

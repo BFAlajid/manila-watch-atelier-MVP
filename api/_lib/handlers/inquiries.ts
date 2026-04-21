@@ -30,7 +30,7 @@ export const createInquiry: Handler = async (ctx) => {
 
   let watch: any = null;
   if (watchId) {
-    const watches = getWatches();
+    const watches = await getWatches();
     const w = watches.find((w) => w.id === watchId);
     if (w) {
       watch = {
@@ -58,12 +58,12 @@ export const createInquiry: Handler = async (ctx) => {
     createdAt: new Date().toISOString(),
   };
 
-  const inquiries = getInquiries();
+  const inquiries = await getInquiries();
   inquiries.push(inquiry);
   try {
-    saveInquiries(inquiries);
+    await saveInquiries(inquiries);
   } catch (err: any) {
-    console.error('[inquiries] saveInquiries failed (expected on Vercel read-only FS):', err?.message || err);
+    console.error('[inquiries] saveInquiries failed:', err?.message || err);
   }
 
   // Durable path — email fires in background regardless of FS write result.
@@ -79,7 +79,7 @@ export const listInquiries: Handler = async (ctx) => {
   if (ctx.method !== 'GET') return { status: 405, body: { error: 'Method not allowed' } };
   if (!ctx.auth.authenticated) return { status: 401, body: { error: 'Unauthorized' } };
 
-  const inquiries = getInquiries();
+  const inquiries = await getInquiries();
   const status = pickString(ctx.query.status);
   const limit = pickString(ctx.query.limit);
 
@@ -111,15 +111,15 @@ export const updateInquiryStatus: Handler = async (ctx) => {
     };
   }
 
-  const inquiries = getInquiries();
+  const inquiries = await getInquiries();
   const index = inquiries.findIndex((i: any) => i.id === id);
   if (index === -1) return { status: 404, body: { error: 'Inquiry not found' } };
 
   inquiries[index] = { ...inquiries[index], ...parsed.data };
   try {
-    saveInquiries(inquiries);
+    await saveInquiries(inquiries);
   } catch (err: any) {
-    console.error('[inquiries/:id] saveInquiries failed (expected on Vercel read-only FS):', err?.message || err);
+    console.error('[inquiries/:id] saveInquiries failed:', err?.message || err);
   }
 
   return { status: 200, body: { success: true, inquiry: inquiries[index] } };

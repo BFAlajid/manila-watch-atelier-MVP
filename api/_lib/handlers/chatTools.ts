@@ -286,11 +286,11 @@ export async function executeChatTool(name: string, input: any, watches: any[]):
       }
 
       try {
-        const inquiries = getInquiries();
+        const inquiries = await getInquiries();
         inquiries.push(inquiry);
-        saveInquiries(inquiries);
+        await saveInquiries(inquiries);
       } catch (err: any) {
-        console.error('[chat/create_inquiry] saveInquiries failed (expected on Vercel read-only FS):', err?.message || err);
+        console.error('[chat/create_inquiry] saveInquiries failed:', err?.message || err);
       }
 
       // Durable path — email fires in background regardless of FS write result.

@@ -56,7 +56,7 @@ export const handleChat: Handler = async (ctx) => {
   }
 
   const recentMessages = messages.slice(-20);
-  const watches = getWatches();
+  const watches = await getWatches();
   const systemPrompt = buildSystemPrompt(watches);
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
