@@ -16,7 +16,15 @@ const INQUIRIES_PATH = join(process.cwd(), 'src', 'data', 'inquiries.json');
 const WATCHES_KEY = 'watches:all';
 const INQUIRIES_KEY = 'inquiries:all';
 
-const hasKv = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+// Vercel's marketplace rebranded "KV" to "Redis". Support both naming schemes:
+//   Legacy KV    : KV_REST_API_URL        + KV_REST_API_TOKEN
+//   Upstash direct: UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+// Redis.fromEnv() in @upstash/redis already prefers UPSTASH_ and falls back to
+// KV_*, so we just need to detect presence of either pair to gate activation.
+const hasKv = Boolean(
+  (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+);
 const redis = hasKv ? Redis.fromEnv() : null;
 
 let warnedNoKv = false;
@@ -24,7 +32,7 @@ function warnFallback(op: string): void {
   if (!warnedNoKv && process.env.NODE_ENV !== 'test') {
     warnedNoKv = true;
     console.warn(
-      `[data] KV not configured (KV_REST_API_URL / KV_REST_API_TOKEN unset). Falling back to JSON files for ${op}. Run \`npm run seed:kv\` to move data into Vercel KV.`
+      `[data] Redis not configured (expected KV_REST_API_URL/KV_REST_API_TOKEN or UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN). Falling back to JSON files for ${op}. Run \`vercel env pull .env.local\` then \`npm run seed:kv\`.`
     );
   }
 }

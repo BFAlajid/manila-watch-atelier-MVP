@@ -25,11 +25,15 @@ function bail(msg: string): never {
   process.exit(1);
 }
 
-if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+const hasKvVars = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
+const hasUpstashVars = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
+if (!hasKvVars && !hasUpstashVars) {
   bail(
-    'KV env vars missing. Expected KV_REST_API_URL and KV_REST_API_TOKEN.\n' +
-      '  For prod:   Link the KV store in the Vercel dashboard, then run `vercel env pull .env.local` locally.\n' +
-      '  For local:  Add them to .env.local.'
+    'Redis env vars missing. Expected either:\n' +
+      '  KV_REST_API_URL + KV_REST_API_TOKEN  (legacy Vercel KV naming), or\n' +
+      '  UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN  (current Vercel marketplace Redis / Upstash naming)\n\n' +
+      '  For prod:   Link the Redis store in the Vercel dashboard, then run `vercel env pull .env.local` locally.\n' +
+      '  For local:  Paste the REST credentials from the Upstash dashboard into .env.local.'
   );
 }
 
