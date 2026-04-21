@@ -527,7 +527,7 @@ async function executeChatTool(name, input, watches) {
       return JSON.stringify({ success: true, id: inquiry.id, message: `Inquiry created for ${inquiry.name}. Sherard will be notified.` });
     }
     case 'get_whatsapp_link': {
-      const number = '639123456789';
+      const number = (process.env.WHATSAPP_NUMBER || '639123456789').replace(/[^\d]/g, '');
       const parts = [input.watchName, input.reference ? `(Ref: ${input.reference})` : '', input.price ? `- ${input.price}` : ''].filter(Boolean).join(' ');
       const msg = parts ? `Hi Sherard! I'm interested in the ${parts}. I was chatting on your website.` : `Hi Sherard! I'm browsing Manila Watch Atelier.`;
       return JSON.stringify({ url: `https://wa.me/${number}?text=${encodeURIComponent(msg)}` });
@@ -649,9 +649,12 @@ function getTokenSecret() {
   return `${salt}:${hash}`;
 }
 
+// 4-hour TTL limits the blast radius if a token is stolen (e.g. via XSS).
+const ADMIN_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
 function createSignedToken(username) {
   const now = Date.now();
-  const expiresAt = now + 24 * 60 * 60 * 1000;
+  const expiresAt = now + ADMIN_TOKEN_TTL_MS;
   const payload = { sub: username, iat: now, exp: expiresAt };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = crypto.createHmac('sha256', getTokenSecret()).update(encoded).digest('base64url');

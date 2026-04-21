@@ -96,9 +96,13 @@ export function verifyAuth(req: any): AuthResult {
   }
 }
 
+// 4-hour TTL limits the blast radius if a token is stolen (e.g. via XSS).
+// Admin will need to re-log at the start of each working session.
+const ADMIN_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
 export function createToken(username: string): { token: string; expiresAt: number } {
   const now = Date.now();
-  const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
+  const expiresAt = now + ADMIN_TOKEN_TTL_MS;
 
   const payload: TokenPayload = {
     sub: username,

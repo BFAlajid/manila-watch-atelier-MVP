@@ -90,9 +90,12 @@ function getSecret(salt, hash) {
   return `${salt}:${hash}`;
 }
 
+// 4-hour TTL limits the blast radius if a token is stolen (e.g. via XSS).
+const ADMIN_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
 function createSignedToken(username, salt, hash) {
   const now = Date.now();
-  const expiresAt = now + 24 * 60 * 60 * 1000;
+  const expiresAt = now + ADMIN_TOKEN_TTL_MS;
 
   const payload = { sub: username, iat: now, exp: expiresAt };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');

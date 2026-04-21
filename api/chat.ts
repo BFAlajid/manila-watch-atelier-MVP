@@ -284,7 +284,7 @@ async function executeTool(name: string, input: any, watches: any[]): Promise<st
     }
 
     case 'get_whatsapp_link': {
-      const number = '639123456789';
+      const number = (process.env.WHATSAPP_NUMBER || '639123456789').replace(/[^\d]/g, '');
       const parts = [input.watchName, input.reference ? `(Ref: ${input.reference})` : '', input.price ? `- ${input.price}` : ''].filter(Boolean).join(' ');
       const msg = parts
         ? `Hi Sherard! I'm interested in the ${parts}. I was chatting on your website and would love to discuss further.`
