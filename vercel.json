@@ -50,11 +50,7 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/|assets/|images/|icons/|\\.well-known/|robots\\.txt|security\\.txt|manifest\\.json|sw\\.js|sw-register\\.js|favicon\\.ico).*)",
       "destination": "/index.html"
     }
   ]
