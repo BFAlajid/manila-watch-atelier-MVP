@@ -40,7 +40,11 @@ export const SUPPORTED_CURRENCIES: Currency[] = [
 
 const CACHE_KEY = 'manila-watch-exchange-rates';
 const CACHE_DURATION = 3600000; // 1 hour in milliseconds
-const API_URL = 'https://api.exchangerate-api.io/v4/latest/PHP';
+// Primary: open.er-api.com — no auth, free forever, updates daily, CORS-enabled.
+// Returns { base_code, rates: { USD: 0.017, EUR: 0.016, ... }, time_last_update_unix }.
+const API_URL = 'https://open.er-api.com/v6/latest/PHP';
+// Fallback host in case the primary is down.
+const BACKUP_API_URL = 'https://api.exchangerate-api.com/v4/latest/PHP';
 
 // Fallback rates in case API is unavailable
 const FALLBACK_RATES: Record<string, number> = {
@@ -80,14 +84,22 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
       }
     }
 
-    // Fetch fresh rates
-    const response = await fetch(API_URL);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch exchange rates');
+    // Fetch fresh rates from primary, fall back to backup on any network error.
+    let data: any;
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error(`Primary API ${response.status}`);
+      data = await response.json();
+    } catch (primaryErr) {
+      console.warn('[currency] primary rate API failed, trying backup:', (primaryErr as Error)?.message);
+      const response = await fetch(BACKUP_API_URL);
+      if (!response.ok) throw new Error(`Backup API ${response.status}`);
+      data = await response.json();
     }
 
-    const data = await response.json();
+    if (!data?.rates || typeof data.rates !== 'object') {
+      throw new Error('Rate payload missing `rates` object');
+    }
 
     const rates: ExchangeRates = {
       base: 'PHP',
@@ -100,7 +112,7 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
 
     return rates;
   } catch (error) {
-    console.error('Error fetching exchange rates, using fallback:', error);
+    console.error('[currency] fetch failed, using frozen fallback rates:', error);
 
     // Return fallback rates
     return {

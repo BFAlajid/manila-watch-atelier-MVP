@@ -42,12 +42,16 @@ export function CurrencySelector({ currentCurrency, onCurrencyChange, className 
   return (
     <div className={`currency-selector relative ${className}`}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-lg transition-colors border border-neutral-800"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={`Currency: ${currentCurrencyData?.name || currentCurrency}. Click to change.`}
+        className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-lg border border-neutral-800 text-white motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
       >
-        <span className="text-lg">{currentCurrencyData?.flag}</span>
-        <span className="font-medium">{currentCurrency}</span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <span className="text-lg" aria-hidden="true">{currentCurrencyData?.flag}</span>
+        <span className="font-medium text-white">{currentCurrency}</span>
+        <ChevronDown className={`w-4 h-4 text-neutral-300 motion-safe:transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
       <AnimatePresence>
@@ -65,7 +69,7 @@ export function CurrencySelector({ currentCurrency, onCurrencyChange, className 
                 placeholder="Search currency..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-3 py-2 bg-neutral-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full px-3 py-2 bg-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
                 autoFocus
               />
             </div>
@@ -86,9 +90,9 @@ export function CurrencySelector({ currentCurrency, onCurrencyChange, className 
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">{currency.flag}</span>
+                      <span className="text-xl" aria-hidden="true">{currency.flag}</span>
                       <div className="text-left">
-                        <p className="font-medium">{currency.code}</p>
+                        <p className="font-medium text-white">{currency.code}</p>
                         <p className="text-sm text-neutral-400">{currency.name}</p>
                       </div>
                     </div>
