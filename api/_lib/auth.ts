@@ -16,10 +16,23 @@ interface TokenPayload {
 }
 
 function getSecret(): string {
+  // Prefer a dedicated TOKEN_SECRET so rotating the admin password doesn't
+  // invalidate every token-signing key, and so an ADMIN_PASSWORD_HASH leak
+  // doesn't give an attacker the ability to forge tokens. Fall back to the
+  // legacy SALT:ADMIN_PASSWORD_HASH derivation for backwards compatibility
+  // with existing deployments — tokens issued under either scheme remain
+  // verifiable as long as the same scheme is active.
+  const secret = process.env.TOKEN_SECRET;
+  if (secret) {
+    if (secret.length < 32) {
+      throw new Error('TOKEN_SECRET must be at least 32 characters');
+    }
+    return secret;
+  }
   const salt = process.env.SALT;
   const hash = process.env.ADMIN_PASSWORD_HASH;
   if (!salt || !hash) {
-    throw new Error('SALT and ADMIN_PASSWORD_HASH environment variables are required');
+    throw new Error('Auth config incomplete: set TOKEN_SECRET (preferred) or SALT + ADMIN_PASSWORD_HASH');
   }
   return `${salt}:${hash}`;
 }
@@ -96,9 +109,13 @@ export function verifyAuth(req: any): AuthResult {
   }
 }
 
+// 4-hour TTL limits the blast radius if a token is stolen (e.g. via XSS).
+// Admin will need to re-log at the start of each working session.
+const ADMIN_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
+
 export function createToken(username: string): { token: string; expiresAt: number } {
   const now = Date.now();
-  const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
+  const expiresAt = now + ADMIN_TOKEN_TTL_MS;
 
   const payload: TokenPayload = {
     sub: username,
@@ -109,6 +126,76 @@ export function createToken(username: string): { token: string; expiresAt: numbe
   return { token: sign(payload), expiresAt };
 }
 
+// Password hashing — scrypt with explicit parameters baked into the hash so we
+// can rotate cost factors later without breaking old hashes. The output format
+// is `scrypt$N$r$p$salt$derived` (base64url-encoded parts). SHA-256 remains
+// supported via verifyPassword for backwards compatibility during transition;
+// see docs/auth-migration.md for the re-set admin password flow.
+const SCRYPT_N = 16384; // 2^14 — recommended for interactive login
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
+
+function scryptHashSync(password: string, salt: Buffer): Buffer {
+  return crypto.scryptSync(password, salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+  });
+}
+
+export function hashPasswordScrypt(password: string): string {
+  const salt = crypto.randomBytes(16);
+  const derived = scryptHashSync(password, salt);
+  const parts = [
+    'scrypt',
+    String(SCRYPT_N),
+    String(SCRYPT_R),
+    String(SCRYPT_P),
+    salt.toString('base64url'),
+    derived.toString('base64url'),
+  ];
+  return parts.join('$');
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+  // New-format scrypt hashes start with "scrypt$".
+  if (storedHash.startsWith('scrypt$')) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 6) return false;
+    const [, nStr, rStr, pStr, saltB64, derivedB64] = parts;
+    try {
+      const salt = Buffer.from(saltB64, 'base64url');
+      const stored = Buffer.from(derivedB64, 'base64url');
+      const derived = crypto.scryptSync(password, salt, stored.length, {
+        N: Number(nStr),
+        r: Number(rStr),
+        p: Number(pStr),
+      });
+      return derived.length === stored.length && crypto.timingSafeEqual(derived, stored);
+    } catch {
+      return false;
+    }
+  }
+
+  // Legacy SHA-256+salt hash (hex). Supported for backwards compat only.
+  const salt = process.env.SALT;
+  if (!salt) return false;
+  const computed = crypto
+    .createHash('sha256')
+    .update(password + salt)
+    .digest('hex');
+  if (computed.length !== storedHash.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(storedHash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+// Retained for the legacy `npm run` helper in docs; emits SHA-256 so callers
+// who generated hashes with the old snippet still work. New hashes should use
+// hashPasswordScrypt() instead.
 export function hashPassword(password: string): string {
   const salt = process.env.SALT;
   if (!salt) {

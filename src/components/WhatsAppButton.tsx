@@ -24,14 +24,14 @@ export function WhatsAppButton({ watchName, price, reference, position = 'fixed'
       href={link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`${buttonClass} bg-[#25D366] hover:bg-[#20BA5A] text-white rounded-full p-4 shadow-lg flex items-center gap-2 transition-colors`}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      aria-label={watchName ? `Inquire about ${watchName} via WhatsApp` : 'Contact Sherard via WhatsApp'}
+      className={`${buttonClass} bg-[#25D366] hover:bg-[#20BA5A] text-white rounded-full p-4 shadow-lg flex items-center gap-2 motion-safe:transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 focus-visible:ring-offset-black`}
+      whileHover={{ y: -2 }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
     >
-      <MessageCircle className="w-6 h-6" />
+      <MessageCircle className="w-6 h-6" aria-hidden="true" />
       {position === 'inline' && <span>Inquire via WhatsApp</span>}
     </motion.a>
   );

@@ -3,13 +3,20 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AnimatePresence, motion } from 'motion/react';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'sonner';
+import { Analytics } from '@vercel/analytics/react';
 import { WatchProvider } from './context/WatchContext';
 import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
 import { ScrollProgress } from './components/ScrollProgress';
 import { ComparisonBar } from './components/ComparisonBar';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
+
+// ChatWidget is not needed for initial render — most visitors never open it.
+// Lazy-load it so the 530-line widget + motion + icons don't ship in the
+// critical bundle.
+const ChatWidget = lazy(() =>
+  import('./components/ChatWidget').then((m) => ({ default: m.ChatWidget }))
+);
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -82,15 +89,25 @@ function AnimatedRoutes() {
 function App() {
   return (
     <HelmetProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <WatchProvider>
-            <Router>
-              <div className="min-h-screen bg-black dark:bg-black light:bg-white transition-colors">
-                <ScrollProgress />
+      <AuthProvider>
+        <WatchProvider>
+          <Router>
+            <div className="min-h-screen bg-black">
+              <a
+                href="#main"
+                className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#D4AF37] focus:text-black focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-[#D4AF37]"
+              >
+                Skip to main content
+              </a>
+              <ScrollProgress />
+              <main id="main" tabIndex={-1} className="outline-none">
                 <AnimatedRoutes />
+              </main>
 
               <ComparisonBar />
+              <Suspense fallback={null}>
+                <ChatWidget />
+              </Suspense>
               <WhatsAppButton position="fixed" />
 
               <Toaster
@@ -104,11 +121,11 @@ function App() {
                   },
                 }}
               />
-              </div>
-            </Router>
-          </WatchProvider>
-        </AuthProvider>
-      </ThemeProvider>
+              <Analytics />
+            </div>
+          </Router>
+        </WatchProvider>
+      </AuthProvider>
     </HelmetProvider>
   );
 }

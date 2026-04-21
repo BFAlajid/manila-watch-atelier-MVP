@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWatch } from '../context/WatchContext';
+import { fetchWatches } from '../lib/api';
 
 interface Watch {
   id: string;
@@ -25,15 +26,15 @@ export function SearchBar() {
 
   // Load watches
   useEffect(() => {
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
+    let cancelled = false;
+    fetchWatches()
+      .then((watches) => {
+        if (!cancelled) setAllWatches(watches as Watch[]);
       })
-    ]).then(([inventoryData, storedData]) => {
-      setAllWatches([...inventoryData, ...storedData]);
-    });
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load watches for search:', err);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   // Keyboard shortcut (Cmd+K or /)

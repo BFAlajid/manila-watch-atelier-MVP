@@ -1,6 +1,12 @@
-// Development API server for local testing
-// In production, Vercel serverless functions handle this
-import 'dotenv/config';
+// Development API server — thin Express wrapper around the shared handlers.
+// In production, Vercel serverless functions in api/ handle these same routes.
+// All business logic lives in api/_lib/handlers/*.
+import { config as loadEnv } from 'dotenv';
+// Load .env first, then .env.local (overrides). Matches Vercel/Next.js
+// convention so `vercel env pull .env.local` Just Works without manual copy.
+loadEnv();
+loadEnv({ path: '.env.local', override: true });
+loadEnv({ path: '.env.development.local', override: true });
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -8,7 +14,24 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Resend } from 'resend';
+
+// Shared handlers (compiled on the fly by tsx when this server runs).
+import { healthCheck } from './api/_lib/handlers/health.ts';
+import {
+  listWatches,
+  getWatchBySlug,
+  createWatch,
+  updateWatch,
+  deleteWatch,
+} from './api/_lib/handlers/watches.ts';
+import {
+  createInquiry,
+  listInquiries,
+  updateInquiryStatus,
+} from './api/_lib/handlers/inquiries.ts';
+import { login } from './api/_lib/handlers/auth.ts';
+import { streamChat } from './api/_lib/handlers/chat.ts';
+import { verifyAuth } from './api/_lib/auth.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,12 +39,81 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3001;
 
-app.use(cors({
-  origin: process.env.APP_URL || 'http://localhost:3000',
-}));
+app.use(cors({ origin: process.env.APP_URL || 'http://localhost:3000' }));
 app.use(express.json());
 
-// Configure multer for image uploads
+// ─── Express adapter: req/res ↔ HandlerContext/HandlerResult ──────────────
+function lowercaseHeaders(h) {
+  const out = {};
+  for (const [k, v] of Object.entries(h || {})) {
+    if (v === undefined) continue;
+    out[k.toLowerCase()] = Array.isArray(v) ? v[0] : String(v);
+  }
+  return out;
+}
+
+function toCtx(req, extraQuery) {
+  return {
+    method: (req.method || 'GET').toUpperCase(),
+    query: { ...(req.query || {}), ...(extraQuery || {}) },
+    body: req.body ?? null,
+    headers: lowercaseHeaders(req.headers || {}),
+    auth: verifyAuth(req),
+    clientIP: req.ip || req.socket?.remoteAddress || 'unknown',
+  };
+}
+
+function sendResult(res, result) {
+  if (result.headers) {
+    for (const [k, v] of Object.entries(result.headers)) res.setHeader(k, v);
+  }
+  if (result.body === undefined) return res.status(result.status).end();
+  return res.status(result.status).json(result.body);
+}
+
+function route(handler, getExtraQuery) {
+  return async (req, res) => {
+    try {
+      const extra = typeof getExtraQuery === 'function' ? getExtraQuery(req) : undefined;
+      const result = await handler(toCtx(req, extra));
+      sendResult(res, result);
+    } catch (err) {
+      console.error(`[dev-server] ${req.method} ${req.path} error:`, err?.message || err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+}
+
+// ─── Routes ─────────────────────────────────────────────────────────────────
+app.get('/api/health', route(healthCheck));
+
+app.get('/api/watches', route(listWatches));
+app.get('/api/watches/:slug', route(getWatchBySlug, (req) => ({ slug: req.params.slug })));
+app.post('/api/watches', route(createWatch));
+app.post('/api/watches/create', route(createWatch));
+app.put('/api/watches/:slug', route(updateWatch, (req) => ({ slug: req.params.slug })));
+app.delete('/api/watches/:slug', route(deleteWatch, (req) => ({ slug: req.params.slug })));
+
+app.post('/api/inquiries', route(createInquiry));
+app.get('/api/inquiries', route(listInquiries));
+app.put('/api/inquiries/:id', route(updateInquiryStatus, (req) => ({ id: req.params.id })));
+
+app.post('/api/auth', route(login));
+// /api/chat uses SSE — bypasses the JSON-body `route()` wrapper.
+app.post('/api/chat', async (req, res) => {
+  try {
+    await streamChat(toCtx(req), res);
+  } catch (err) {
+    console.error('[dev-server] /api/chat stream error:', err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    else try { res.end(); } catch {}
+  }
+});
+
+// ─── Upload (kept wrapper-owned — multipart parsing differs Express vs Vercel) ──
+const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const ALLOWED_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif']);
+
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(__dirname, 'public', 'images', 'watches');
@@ -29,293 +121,38 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  }
+    const original = path.basename(file.originalname || 'upload');
+    const safeBase = original.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const unpredictable = crypto.randomUUID().slice(0, 8);
+    cb(null, `${Date.now()}-${unpredictable}-${safeBase}`);
+  },
 });
 
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed'), false);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_IMAGE_MIMES.has(file.mimetype) || !ALLOWED_IMAGE_EXTS.has(ext)) {
+      return cb(new Error('Only JPEG, PNG, WebP, or AVIF images are allowed (SVG explicitly rejected).'), false);
     }
     cb(null, true);
-  }
+  },
 });
 
-const INVENTORY_PATH = path.join(__dirname, 'src', 'data', 'inventory.json');
-
-// Helper: read inventory and normalize fields for the frontend
-async function getWatches() {
-  const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
-  const inventory = JSON.parse(data);
-  return inventory.map((w) => ({
-    ...w,
-    // Ensure both field names exist for compatibility
-    pricePHP: w.pricePHP ?? w.price_php ?? 0,
-    price_php: w.price_php ?? w.pricePHP ?? 0,
-    boxPapers: w.boxPapers || (w.box && w.papers ? 'Box & Papers' : w.box ? 'Box' : w.papers ? 'Papers' : 'None'),
-    status: w.status || 'AVAILABLE',
-    viewCount: w.viewCount || 0,
-    inquiryCount: w.inquiryCount || 0,
-    featured: w.featured || false,
-    marketTrend: w.marketTrend || 'STABLE',
-    annualAppreciation: w.annualAppreciation || 0,
-    retailPricePHP: w.retailPricePHP || null,
-  }));
+function requireAdmin(req, res, next) {
+  const auth = verifyAuth(req);
+  if (!auth.authenticated) return res.status(401).json({ error: 'Unauthorized' });
+  req.adminUser = auth.username;
+  next();
 }
 
-// ─── GET /api/watches ────────────────────────────────────────────────
-app.get('/api/watches', async (req, res) => {
-  try {
-    let watches = await getWatches();
-
-    // Apply filters
-    const { brand, status, search, minPrice, maxPrice, condition, category, tier, sort } = req.query;
-
-    if (brand) watches = watches.filter(w => w.brand.toLowerCase() === brand.toString().toLowerCase());
-    if (status && status !== 'ALL') watches = watches.filter(w => w.status === status);
-    if (condition) watches = watches.filter(w => w.condition === condition);
-    if (category) watches = watches.filter(w => w.category === category);
-    if (tier) watches = watches.filter(w => w.tier === tier);
-    if (minPrice) watches = watches.filter(w => w.price_php >= parseInt(minPrice.toString()));
-    if (maxPrice) watches = watches.filter(w => w.price_php <= parseInt(maxPrice.toString()));
-    if (search) {
-      const q = search.toString().toLowerCase();
-      watches = watches.filter(w =>
-        w.brand.toLowerCase().includes(q) ||
-        w.model.toLowerCase().includes(q) ||
-        w.name.toLowerCase().includes(q) ||
-        w.reference.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort
-    if (sort === 'price_asc') watches.sort((a, b) => a.price_php - b.price_php);
-    else if (sort === 'price_desc') watches.sort((a, b) => b.price_php - a.price_php);
-
-    res.json(watches);
-  } catch (error) {
-    console.error('Error reading watches:', error);
-    res.status(500).json({ error: 'Failed to read inventory' });
-  }
-});
-
-// ─── GET /api/watches/:slug ──────────────────────────────────────────
-app.get('/api/watches/:slug', async (req, res) => {
-  try {
-    const watches = await getWatches();
-    const watch = watches.find(w => w.slug === req.params.slug);
-    if (!watch) return res.status(404).json({ error: 'Watch not found' });
-    watch.viewCount = (watch.viewCount || 0) + 1;
-    res.json(watch);
-  } catch (error) {
-    console.error('Error reading watch:', error);
-    res.status(500).json({ error: 'Failed to read watch' });
-  }
-});
-
-// ─── PUT /api/watches/:slug ──────────────────────────────────────────
-app.put('/api/watches/:slug', requireAuth, async (req, res) => {
-  try {
-    const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
-    const inventory = JSON.parse(data);
-    const index = inventory.findIndex(w => w.slug === req.params.slug);
-    if (index === -1) return res.status(404).json({ error: 'Watch not found' });
-    // Prevent overwriting server-controlled fields via raw body spread
-    const { id, created_at, slug, viewCount, inquiryCount, ...safeFields } = req.body;
-    inventory[index] = { ...inventory[index], ...safeFields, updated_at: new Date().toISOString() };
-    await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
-    res.json(inventory[index]);
-  } catch (error) {
-    console.error('Error updating watch:', error);
-    res.status(500).json({ error: 'Failed to update watch' });
-  }
-});
-
-// ─── POST /api/watches ──────────────────────────────────────────────
-app.post('/api/watches', requireAuth, async (req, res) => {
-  try {
-    const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
-    const inventory = JSON.parse(data);
-    const watch = {
-      ...req.body,
-      id: req.body.id || `watch-${Date.now()}`,
-      slug: req.body.slug || `${req.body.brand}-${req.body.model}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-      status: req.body.status || 'AVAILABLE',
-      images: req.body.images || [],
-      specifications: req.body.specifications || {},
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    inventory.push(watch);
-    await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
-    console.log(`✅ New watch added: ${watch.brand} ${watch.name} (${watch.id})`);
-    res.status(201).json(watch);
-  } catch (error) {
-    console.error('Error creating watch:', error);
-    res.status(500).json({ error: 'Failed to create watch' });
-  }
-});
-
-// ─── DELETE /api/watches/:slug ───────────────────────────────────────
-app.delete('/api/watches/:slug', requireAuth, async (req, res) => {
-  try {
-    const data = await fs.readFile(INVENTORY_PATH, 'utf-8');
-    const inventory = JSON.parse(data);
-    const index = inventory.findIndex(w => w.slug === req.params.slug);
-    if (index === -1) return res.status(404).json({ error: 'Watch not found' });
-    const removed = inventory.splice(index, 1)[0];
-    await fs.writeFile(INVENTORY_PATH, JSON.stringify(inventory, null, 2), 'utf-8');
-    console.log(`🗑️  Deleted watch: ${removed.brand} ${removed.name || removed.model} (${removed.slug})`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting watch:', error);
-    res.status(500).json({ error: 'Failed to delete watch' });
-  }
-});
-
-// ─── POST /api/inquiries ─────────────────────────────────────────────
-const inquiriesPath = path.join(__dirname, 'src', 'data', 'inquiries.json');
-
-// ─── Simple rate limiter ────────────────────────────────────────────
-const rateLimitWindows = new Map();
-function isRateLimited(key, maxRequests, windowMs) {
-  const now = Date.now();
-  const timestamps = rateLimitWindows.get(key) || [];
-  const valid = timestamps.filter(t => now - t < windowMs);
-  if (valid.length >= maxRequests) { rateLimitWindows.set(key, valid); return true; }
-  valid.push(now);
-  rateLimitWindows.set(key, valid);
-  return false;
-}
-
-async function getInquiries() {
-  try {
-    const data = await fs.readFile(inquiriesPath, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-async function saveInquiries(inquiries) {
-  await fs.writeFile(inquiriesPath, JSON.stringify(inquiries, null, 2), 'utf-8');
-}
-
-// ─── Email notifications via Resend ─────────────────────────────────
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-async function sendInquiryNotification(inquiry) {
-  if (!resend) {
-    console.log('⚠️  RESEND_API_KEY not set — skipping email notification');
-    return;
-  }
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@manilawatch.com';
-  const watchInfo = inquiry.watch
-    ? `\n\nWatch: ${inquiry.watch.brand} ${inquiry.watch.model} (Ref. ${inquiry.watch.reference})\nPrice: ₱${inquiry.watch.pricePHP?.toLocaleString()}`
-    : '';
-
-  try {
-    await resend.emails.send({
-      from: 'Manila Watch Atelier <notifications@manilawatch.com>',
-      to: adminEmail,
-      subject: `New Inquiry from ${inquiry.name}`,
-      text: `New inquiry received:\n\nName: ${inquiry.name}\nEmail: ${inquiry.email}\nPhone: ${inquiry.phone || 'N/A'}\nMessage: ${inquiry.message || 'No message'}${watchInfo}\n\nReceived: ${inquiry.createdAt}`,
-    });
-    console.log(`📧 Email notification sent to ${adminEmail}`);
-  } catch (err) {
-    console.error('📧 Failed to send email notification:', err.message);
-  }
-}
-
-app.post('/api/inquiries', async (req, res) => {
-  try {
-    const { name, email, phone, message, watchId } = req.body;
-    if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email' });
-
-    // Rate limit: 3 per email per hour
-    if (isRateLimited(`inquiry:${email}`, 3, 60 * 60 * 1000)) {
-      return res.status(429).json({ error: 'Too many inquiries. Please try again later.' });
-    }
-
-    const inquiries = await getInquiries();
-    const inquiry = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      phone: phone || null,
-      message: message || '',
-      watchId: watchId || null,
-      watch: null,
-      source: 'FORM',
-      status: 'NEW',
-      createdAt: new Date().toISOString(),
-    };
-
-    // Attach watch info if watchId provided
-    if (watchId) {
-      const watches = await getWatches();
-      const w = watches.find(w => w.id === watchId);
-      if (w) {
-        inquiry.watch = { id: w.id, slug: w.slug, brand: w.brand, model: w.model, reference: w.reference, pricePHP: w.pricePHP, images: w.images };
-      }
-    }
-
-    inquiries.push(inquiry);
-    await saveInquiries(inquiries);
-    console.log(`✅ New inquiry from ${name} (${email})`);
-    res.status(201).json({ success: true, id: inquiry.id });
-
-    // Send email notification (non-blocking)
-    sendInquiryNotification(inquiry).catch(() => {});
-  } catch (error) {
-    console.error('Error creating inquiry:', error);
-    res.status(500).json({ error: 'Failed to submit inquiry' });
-  }
-});
-
-app.get('/api/inquiries', requireAuth, async (req, res) => {
-  try {
-    const inquiries = await getInquiries();
-    res.json(inquiries);
-  } catch (error) {
-    console.error('Error reading inquiries:', error);
-    res.status(500).json({ error: 'Failed to read inquiries' });
-  }
-});
-
-// ─── PUT /api/inquiries/:id ──────────────────────────────────────────
-app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
-  try {
-    const inquiries = await getInquiries();
-    const index = inquiries.findIndex(i => i.id === req.params.id);
-    if (index === -1) return res.status(404).json({ error: 'Inquiry not found' });
-    // Only allow updating status field — prevent arbitrary field injection
-    const { status } = req.body;
-    if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
-    }
-    inquiries[index] = { ...inquiries[index], status };
-    await saveInquiries(inquiries);
-    res.json({ success: true, inquiry: inquiries[index] });
-  } catch (error) {
-    console.error('Error updating inquiry:', error);
-    res.status(500).json({ error: 'Failed to update inquiry' });
-  }
-});
-
-// ─── POST /api/upload-image ──────────────────────────────────────────
-app.post('/api/upload-image', requireAuth, upload.array('images', 10), async (req, res) => {
+app.post('/api/upload-image', requireAdmin, upload.array('images', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No images uploaded' });
     }
-    const urls = req.files.map(file => `/images/watches/${file.filename}`);
-    console.log(`✅ Uploaded ${urls.length} image(s):`, urls);
+    const urls = req.files.map((f) => `/images/watches/${f.filename}`);
     res.json({ success: true, urls });
   } catch (error) {
     console.error('Error uploading images:', error);
@@ -323,90 +160,13 @@ app.post('/api/upload-image', requireAuth, upload.array('images', 10), async (re
   }
 });
 
-// ─── HMAC Token Helpers ─────────────────────────────────────────────
-function getTokenSecret() {
-  const salt = process.env.SALT;
-  const hash = process.env.ADMIN_PASSWORD_HASH;
-  if (!salt || !hash) throw new Error('SALT and ADMIN_PASSWORD_HASH env vars required');
-  return `${salt}:${hash}`;
-}
-
-function createSignedToken(username) {
-  const now = Date.now();
-  const expiresAt = now + 24 * 60 * 60 * 1000;
-  const payload = { sub: username, iat: now, exp: expiresAt };
-  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', getTokenSecret()).update(encoded).digest('base64url');
-  return { token: `${encoded}.${signature}`, expiresAt };
-}
-
-function verifyToken(authHeader) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-  const [encoded, signature] = parts;
-  const expectedSig = crypto.createHmac('sha256', getTokenSecret()).update(encoded).digest('base64url');
-  if (signature.length !== expectedSig.length) return null;
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString());
-    if (!payload.sub || !payload.exp || Date.now() > payload.exp) return null;
-    return payload;
-  } catch { return null; }
-}
-
-// ─── Auth Middleware for Admin Routes ────────────────────────────────
-function requireAuth(req, res, next) {
-  const payload = verifyToken(req.headers.authorization);
-  if (!payload) return res.status(401).json({ error: 'Unauthorized' });
-  req.adminUser = payload.sub;
-  next();
-}
-
-// ─── POST /api/auth ──────────────────────────────────────────────────
-app.post('/api/auth', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
-    const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-    const SALT = process.env.SALT;
-
-    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !SALT) {
-      console.error('Auth env vars missing');
-      return res.status(500).json({ error: 'Authentication service unavailable' });
-    }
-
-    if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-
-    const passwordHash = crypto.createHash('sha256').update(password + SALT).digest('hex');
-
-    // Timing-safe comparison
-    const userBuf = Buffer.from(String(username));
-    const adminBuf = Buffer.from(ADMIN_USERNAME);
-    const hashBuf = Buffer.from(passwordHash);
-    const expectedBuf = Buffer.from(ADMIN_PASSWORD_HASH);
-    const usernameMatch = userBuf.length === adminBuf.length && crypto.timingSafeEqual(userBuf, adminBuf);
-    const passwordMatch = hashBuf.length === expectedBuf.length && crypto.timingSafeEqual(hashBuf, expectedBuf);
-
-    if (usernameMatch && passwordMatch) {
-      const { token, expiresAt } = createSignedToken(ADMIN_USERNAME);
-      console.log(`Admin login successful: ${username}`);
-      res.json({ success: true, token, expiresAt, username: ADMIN_USERNAME });
-    } else {
-      console.log(`Failed login attempt: ${username}`);
-      res.status(401).json({ success: false, error: 'Invalid credentials' });
-    }
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
-  }
-});
-
+// ─── Start ──────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀 Manila Watch Atelier — Dev API Server`);
-  console.log(`📡 Running on http://localhost:${PORT}`);
-  console.log(`📝 Watches: http://localhost:${PORT}/api/watches`);
-  console.log(`📝 Inquiries: http://localhost:${PORT}/api/inquiries`);
-  console.log(`🔐 Auth: http://localhost:${PORT}/api/auth\n`);
+  console.log(`\nManila Watch Atelier — Dev API Server`);
+  console.log(`Running on http://localhost:${PORT}`);
+  console.log(`Watches: http://localhost:${PORT}/api/watches`);
+  console.log(`Inquiries: http://localhost:${PORT}/api/inquiries`);
+  console.log(`Chat: http://localhost:${PORT}/api/chat`);
+  console.log(`Auth: http://localhost:${PORT}/api/auth`);
+  console.log(`Health: http://localhost:${PORT}/api/health\n`);
 });

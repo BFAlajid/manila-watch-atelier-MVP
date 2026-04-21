@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { IncomingForm } from 'formidable';
+import { verifyAuth } from './_lib/auth.js';
 
 // Allowed image MIME types and extensions
 const ALLOWED_MIME_TYPES = new Set([
@@ -12,43 +13,6 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif']);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-function verifyAuthToken(req) {
-  const authHeader = req.headers?.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-
-  const token = authHeader.slice(7);
-  if (!token) return false;
-
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-
-  const [encoded, signature] = parts;
-
-  const salt = process.env.SALT;
-  const hash = process.env.ADMIN_PASSWORD_HASH;
-  if (!salt || !hash) return false;
-
-  const secret = `${salt}:${hash}`;
-  const expectedSig = crypto
-    .createHmac('sha256', secret)
-    .update(encoded)
-    .digest('base64url');
-
-  if (signature.length !== expectedSig.length) return false;
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
-    return false;
-  }
-
-  try {
-    const data = JSON.parse(Buffer.from(encoded, 'base64url').toString());
-    if (!data.sub || !data.exp) return false;
-    if (Date.now() > data.exp) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function sanitizeFilename(original) {
   // Extract only the basename (prevent path traversal via ../ or absolute paths)
@@ -76,8 +40,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authentication required
-  if (!verifyAuthToken(req)) {
+  // Authentication required (shared verifier — picks up TOKEN_SECRET or legacy SALT+HASH).
+  if (!verifyAuth(req).authenticated) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

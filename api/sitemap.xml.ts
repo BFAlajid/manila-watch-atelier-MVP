@@ -1,13 +1,14 @@
 // GET /api/sitemap.xml — Generate XML sitemap from JSON data
 import { getWatches } from './_lib/data.js';
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
     return res.status(405).end();
   }
 
   try {
-    const watches = getWatches().filter((w) => w.status === 'AVAILABLE');
+    const allWatches = await getWatches();
+    const watches = allWatches.filter((w) => w.status === 'AVAILABLE');
     const baseUrl = process.env.APP_URL || 'https://manilawatch.com';
 
     // Collect unique brands for brand pages

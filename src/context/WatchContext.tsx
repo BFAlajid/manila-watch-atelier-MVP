@@ -52,9 +52,11 @@ export function WatchProvider({ children }: { children: ReactNode }) {
   const [comparison, setComparison] = useLocalStorage<string[]>('manila-watch-comparison', []);
   const [recentlyViewed, setRecentlyViewed] = useLocalStorage<string[]>('manila-watch-recent', []);
   const [viewCounts, setViewCounts] = useLocalStorage<Record<string, number>>('manila-watch-views', {});
-  const [currencyMode, setCurrencyMode] = useLocalStorage<'PHP' | 'USD'>('manila-watch-currency', 'PHP');
+  // Legacy PHP/USD toggle uses its own key so it does not collide with the
+  // multi-currency `currency` state below.
+  const [currencyMode, setCurrencyMode] = useLocalStorage<'PHP' | 'USD'>('manila-watch-currency-mode', 'PHP');
 
-  // Enhanced currency state
+  // Enhanced currency state (20-currency selector) — authoritative key.
   const [currency, setCurrencyState] = useLocalStorage<string>('manila-watch-currency', 'PHP');
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(null);
   const [isLoadingRates, setIsLoadingRates] = useState(true);
@@ -107,7 +109,6 @@ export function WatchProvider({ children }: { children: ReactNode }) {
 
   const setCurrency = useCallback((newCurrency: string) => {
     setCurrencyState(newCurrency);
-    localStorage.setItem('manila-watch-currency', newCurrency);
   }, [setCurrencyState]);
   
   // Favorites

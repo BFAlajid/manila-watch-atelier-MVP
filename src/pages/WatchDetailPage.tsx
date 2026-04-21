@@ -8,7 +8,6 @@ import { FavoriteButton } from '../components/FavoriteButton';
 import { ShareButton } from '../components/ShareButton';
 import { ComparisonButton } from '../components/ComparisonButton';
 import { CopyButton } from '../components/CopyButton';
-import { ViewCounter } from '../components/ViewCounter';
 import { LowStockBadge } from '../components/LowStockBadge';
 import { WhatsAppButton } from '../components/WhatsAppButton';
 import { InquiryModal } from '../components/InquiryModal';
@@ -217,16 +216,16 @@ export default function WatchDetailPage() {
             <div>
               {/* Brand & Name */}
               <p className="text-[#D4AF37] mb-2">{watch.brand}</p>
-              <h1 className="text-4xl mb-4 font-serif">{watch.name}</h1>
+              <h1 className="text-4xl mb-4 font-serif">
+                <span className="block text-sm tracking-widest text-[#D4AF37] mb-2 font-sans uppercase">{watch.brand}</span>
+                {watch.name}
+              </h1>
 
               {/* Reference & Copy */}
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-neutral-400">Ref: {watch.reference}</span>
                 <CopyButton text={watch.reference} label="Reference" />
               </div>
-
-              {/* View Count */}
-              <ViewCounter watchId={watch.id} className="mb-6" />
 
               {/* Price */}
               <div className="mb-6">

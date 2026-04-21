@@ -1,17 +1,19 @@
 import { DollarSign } from 'lucide-react';
 import { useWatch } from '../context/WatchContext';
+import { Button } from './ui/Button';
 
 export function CurrencyToggle() {
   const { currencyMode, toggleCurrency } = useWatch();
 
   return (
-    <button
+    <Button
       onClick={toggleCurrency}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-800 hover:border-[#D4AF37] transition-colors"
+      variant="secondary"
+      size="sm"
+      leftIcon={<DollarSign className="w-4 h-4" />}
       title="Toggle currency"
     >
-      <DollarSign className="w-4 h-4" />
-      <span className="text-sm">{currencyMode}</span>
-    </button>
+      {currencyMode}
+    </Button>
   );
 }

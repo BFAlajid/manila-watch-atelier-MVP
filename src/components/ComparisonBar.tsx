@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useWatch } from '../context/WatchContext';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { fetchWatches } from '../lib/api';
+import { IconButton } from './ui/IconButton';
+import { Button } from './ui/Button';
 
 interface Watch {
   id: string;
@@ -23,18 +26,17 @@ export function ComparisonBar() {
       return;
     }
 
-    // Load watch data
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
+    let cancelled = false;
+    fetchWatches()
+      .then((allWatches) => {
+        if (cancelled) return;
+        const selectedWatches = allWatches.filter((w: Watch) => comparison.includes(w.id));
+        setWatches(selectedWatches);
       })
-    ]).then(([inventoryData, storedData]) => {
-      const allWatches = [...inventoryData, ...storedData];
-      const selectedWatches = allWatches.filter((w: Watch) => comparison.includes(w.id));
-      setWatches(selectedWatches);
-    });
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load watches for comparison:', err);
+      });
+    return () => { cancelled = true; };
   }, [comparison]);
 
   if (comparison.length === 0) return null;
@@ -70,12 +72,13 @@ export function ComparisonBar() {
                   <span className="text-sm text-white truncate max-w-[150px]">
                     {watch.brand} {watch.name.split(' ').slice(0, 3).join(' ')}
                   </span>
-                  <button
+                  <IconButton
+                    label={`Remove ${watch.brand} ${watch.name} from comparison`}
+                    icon={<X className="w-4 h-4" />}
+                    variant="ghost"
+                    size="sm"
                     onClick={() => removeFromComparison(watch.id)}
-                    className="text-neutral-400 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  />
                 </div>
               ))}
             </div>
@@ -83,16 +86,13 @@ export function ComparisonBar() {
             <div className="flex items-center gap-3">
               <Link
                 to="/compare"
-                className="px-6 py-2 bg-[#D4AF37] text-black rounded-lg hover:bg-[#F4E5B8] transition-colors"
+                className="px-6 py-2 bg-[#D4AF37] text-black rounded-lg hover:bg-[#F4E5B8] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
               >
                 Compare Now
               </Link>
-              <button
-                onClick={clearComparison}
-                className="text-neutral-400 hover:text-white"
-              >
+              <Button variant="ghost" size="sm" onClick={clearComparison}>
                 Clear All
-              </button>
+              </Button>
             </div>
           </div>
         </div>

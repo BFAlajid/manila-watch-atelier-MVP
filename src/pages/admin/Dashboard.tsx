@@ -116,8 +116,13 @@ function downloadCSV(filename: string, csvContent: string) {
 }
 
 function escapeCSV(value: string | number | null | undefined): string {
-  const str = String(value ?? '');
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+  let str = String(value ?? '');
+  // Neutralize CSV-injection formula triggers (=, +, -, @, tab, CR) by prefixing
+  // a single quote so Excel/Sheets treat the cell as text, not a formula.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  if (/[,"\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -156,34 +161,32 @@ function exportInquiriesCSV(inquiries: Inquiry[]) {
 // ---------------------------------------------------------------------------
 // Analytics helpers
 // ---------------------------------------------------------------------------
-interface ViewData {
-  slug: string;
-  timestamp: string;
-}
+// Local view counts are stored by WatchContext as Record<watchId, count>.
+// This helper reads the same shape that incrementViewCount writes.
+type LocalViewCounts = Record<string, number>;
 
-function getStoredViews(): ViewData[] {
+function getStoredViews(): LocalViewCounts {
   try {
     const raw = localStorage.getItem('manila-watch-views');
-    if (!raw) return [];
+    if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as LocalViewCounts;
+    return {};
   } catch {
-    return [];
+    return {};
   }
 }
 
-function getTopViewedWatches(watches: Watch[], views: ViewData[], limit = 8): { name: string; brand: string; count: number }[] {
-  // Count views per slug
-  const slugCounts: Record<string, number> = {};
-  views.forEach((v) => {
-    slugCounts[v.slug] = (slugCounts[v.slug] || 0) + 1;
-  });
+function getTotalLocalViews(views: LocalViewCounts): number {
+  return Object.values(views).reduce((sum, n) => sum + (typeof n === 'number' ? n : 0), 0);
+}
 
-  // Also use viewCount from watches data as fallback
+function getTopViewedWatches(watches: Watch[], views: LocalViewCounts, limit = 8): { name: string; brand: string; count: number }[] {
+  // Combine server-side viewCount with client-side local counts (keyed by watch id).
   const combined: { name: string; brand: string; count: number }[] = watches.map((w) => ({
     name: w.name || `${w.brand} ${w.model}`,
     brand: w.brand,
-    count: (slugCounts[w.slug] || 0) + (w.viewCount || 0),
+    count: (views[w.id] || 0) + (w.viewCount || 0),
   }));
 
   combined.sort((a, b) => b.count - a.count);
@@ -724,7 +727,7 @@ export function AdminDashboard() {
 
   // Analytics data
   const storedViews = getStoredViews();
-  const totalViews = storedViews.length + watches.reduce((sum, w) => sum + (w.viewCount || 0), 0);
+  const totalViews = getTotalLocalViews(storedViews) + watches.reduce((sum, w) => sum + (w.viewCount || 0), 0);
   const topViewedWatches = getTopViewedWatches(watches, storedViews);
   const conversionRate = totalViews > 0 ? ((inquiries.length / totalViews) * 100).toFixed(1) : '0.0';
   const inquiriesByDay = getInquiriesByDay(inquiries);

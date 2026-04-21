@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { FavoriteButton } from './FavoriteButton';
 import { ShareButton } from './ShareButton';
 import { ComparisonButton } from './ComparisonButton';
-import { ViewCounter } from './ViewCounter';
 import { LowStockBadge } from './LowStockBadge';
 import { useWatch } from '../context/WatchContext';
 
@@ -140,9 +139,8 @@ export function ProductGrid({ limit }: ProductGridProps) {
             </div>
             <motion.button
               onClick={() => setShowFilters(!showFilters)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg transition-colors"
+              whileHover={{ y: -1 }}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-[#D4AF37] rounded-lg motion-safe:transition-colors motion-reduce:transition-none"
             >
               <SlidersHorizontal className="w-4 h-4 text-neutral-400" />
               <span className="text-neutral-300">Filters</span>
@@ -262,8 +260,7 @@ export function ProductGrid({ limit }: ProductGridProps) {
                   {formatPrice(watch.price_php)}
                 </p>
                 
-                <div className="flex items-center justify-between mb-4">
-                  <ViewCounter watchId={watch.id} />
+                <div className="flex items-center justify-end mb-4">
                   <span className="text-sm text-neutral-500 capitalize">
                     {watch.condition.replace('_', ' ')}
                   </span>

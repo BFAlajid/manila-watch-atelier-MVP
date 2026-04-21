@@ -62,9 +62,9 @@ export function WatchVideoPlayer({ video, watchName, posterImage }: WatchVideoPl
             {/* Play Button */}
             <div className="absolute inset-0 flex items-center justify-center">
               <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-24 h-24 bg-[#D4AF37] rounded-full flex items-center justify-center shadow-2xl"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="w-24 h-24 bg-[#D4AF37] rounded-full flex items-center justify-center shadow-2xl motion-reduce:transition-none"
               >
                 <Play className="w-12 h-12 text-black fill-current ml-2" />
               </motion.div>

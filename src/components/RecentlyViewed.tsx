@@ -3,6 +3,7 @@ import { useWatch } from '../context/WatchContext';
 import { Link } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { motion } from 'motion/react';
+import { fetchWatches } from '../lib/api';
 
 interface Watch {
   id: string;
@@ -30,19 +31,19 @@ export function RecentlyViewed({ currentWatchId }: RecentlyViewedProps) {
       return;
     }
 
-    Promise.all([
-      fetch('/data/inventory.json').then(r => r.json()),
-      new Promise<Watch[]>(resolve => {
-        const stored = localStorage.getItem('manila-watch-inventory');
-        resolve(stored ? JSON.parse(stored) : []);
+    let cancelled = false;
+    fetchWatches()
+      .then((allWatches) => {
+        if (cancelled) return;
+        const viewedWatches = viewedIds
+          .map((id) => allWatches.find((w: Watch) => w.id === id))
+          .filter(Boolean) as Watch[];
+        setWatches(viewedWatches);
       })
-    ]).then(([inventoryData, storedData]) => {
-      const allWatches = [...inventoryData, ...storedData];
-      const viewedWatches = viewedIds
-        .map(id => allWatches.find((w: Watch) => w.id === id))
-        .filter(Boolean) as Watch[];
-      setWatches(viewedWatches);
-    });
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load watches for recently-viewed:', err);
+      });
+    return () => { cancelled = true; };
   }, [recentlyViewed, currentWatchId]);
 
   if (watches.length === 0) return null;

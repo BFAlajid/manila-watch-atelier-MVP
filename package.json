@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^1.6.1",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "formidable": "^3.5.4",
     "lucide-react": "^0.487.0",
     "motion": "*",
     "multer": "^2.0.2",
@@ -22,25 +25,34 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@tailwindcss/vite": "^4.2.3",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^20.10.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "concurrently": "^9.2.1",
     "jsdom": "^25.0.0",
     "sharp": "^0.34.5",
     "svgo": "^4.0.0",
+    "tailwindcss": "^4.2.3",
     "tsx": "^4.19.0",
+    "typescript": "~5.5.4",
     "vite": "6.3.5",
     "vite-plugin-image-optimizer": "^2.0.3",
     "vitest": "^2.1.0"
   },
   "scripts": {
-    "dev": "concurrently -n frontend,api -c cyan,yellow \"vite\" \"node dev-server.js\"",
+    "dev": "concurrently -n frontend,api -c cyan,yellow \"vite\" \"tsx dev-server.js\"",
     "dev:frontend": "vite",
-    "dev:api": "node dev-server.js",
+    "dev:api": "tsx dev-server.js",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:kv": "tsx scripts/seed-kv.ts",
+    "hash:password": "tsx scripts/hash-password.ts",
+    "optimize:images": "tsx scripts/optimize-images.ts"
   }
 }
