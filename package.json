@@ -41,9 +41,9 @@
     "vitest": "^2.1.0"
   },
   "scripts": {
-    "dev": "concurrently -n frontend,api -c cyan,yellow \"vite\" \"node dev-server.js\"",
+    "dev": "concurrently -n frontend,api -c cyan,yellow \"vite\" \"tsx dev-server.js\"",
     "dev:frontend": "vite",
-    "dev:api": "node dev-server.js",
+    "dev:api": "tsx dev-server.js",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
