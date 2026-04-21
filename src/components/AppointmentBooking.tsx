@@ -26,6 +26,7 @@ export function AppointmentBooking({ watchName, watchId, onClose, isOpen }: Appo
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Minimum date is tomorrow
   const tomorrow = new Date();
@@ -40,9 +41,10 @@ export function AppointmentBooking({ watchName, watchId, onClose, isOpen }: Appo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMessage(null);
 
     try {
-      await fetch(`${API_BASE_URL}/inquiries`, {
+      const response = await fetch(`${API_BASE_URL}/inquiries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,10 +55,17 @@ export function AppointmentBooking({ watchName, watchId, onClose, isOpen }: Appo
           watchId: watchId || null,
         }),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || `Request failed (${response.status})`);
+      }
       setSubmitted(true);
-    } catch {
-      // Still show success — appointment saved locally
-      setSubmitted(true);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.message === 'Failed to fetch'
+          ? 'Could not reach the server. Please check your connection and try again, or message Sherard on WhatsApp.'
+          : err?.message || 'Something went wrong. Please try again or message Sherard on WhatsApp.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -70,6 +79,7 @@ export function AppointmentBooking({ watchName, watchId, onClose, isOpen }: Appo
     setTime('');
     setNotes('');
     setSubmitted(false);
+    setErrorMessage(null);
     onClose();
   };
 
@@ -133,6 +143,15 @@ export function AppointmentBooking({ watchName, watchId, onClose, isOpen }: Appo
                       )}
                     </div>
                   </div>
+
+                  {errorMessage && (
+                    <div
+                      role="alert"
+                      className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200"
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">

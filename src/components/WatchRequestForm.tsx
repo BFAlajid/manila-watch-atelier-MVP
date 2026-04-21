@@ -22,13 +22,15 @@ export function WatchRequestForm({ onClose, isOpen }: WatchRequestFormProps) {
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMessage(null);
 
     try {
-      await fetch(`${API_BASE_URL}/inquiries`, {
+      const response = await fetch(`${API_BASE_URL}/inquiries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -38,9 +40,17 @@ export function WatchRequestForm({ onClose, isOpen }: WatchRequestFormProps) {
           message: `[SOURCING REQUEST]\nBrand: ${brand}\nModel: ${model}\nReference: ${reference || 'Any'}\nBudget: ${budget || 'Flexible'}\n\nDetails: ${details || 'None'}`,
         }),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || `Request failed (${response.status})`);
+      }
       setSubmitted(true);
-    } catch {
-      setSubmitted(true);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.message === 'Failed to fetch'
+          ? 'Could not reach the server. Please check your connection and try again, or message Sherard on WhatsApp.'
+          : err?.message || 'Something went wrong. Please try again or message Sherard on WhatsApp.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -51,6 +61,7 @@ export function WatchRequestForm({ onClose, isOpen }: WatchRequestFormProps) {
     setBrand(''); setModel(''); setReference('');
     setBudget(''); setDetails('');
     setSubmitted(false);
+    setErrorMessage(null);
     onClose();
   };
 
@@ -112,6 +123,15 @@ export function WatchRequestForm({ onClose, isOpen }: WatchRequestFormProps) {
                       <p className="text-sm text-neutral-400">Let us source it for you</p>
                     </div>
                   </div>
+
+                  {errorMessage && (
+                    <div
+                      role="alert"
+                      className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200"
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">

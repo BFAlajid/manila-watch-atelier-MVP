@@ -62,7 +62,11 @@ export default function handler(req: any, res: any) {
         updated_at: new Date().toISOString(),
       };
 
-      try { saveWatches(watches); } catch { /* read-only on Vercel */ }
+      try {
+        saveWatches(watches);
+      } catch (err: any) {
+        console.error('[watches/:slug PUT] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+      }
 
       return res.status(200).json({ success: true, watch: watches[index] });
     } catch (error) {
@@ -87,7 +91,11 @@ export default function handler(req: any, res: any) {
 
       watches[index].status = 'SOLD';
 
-      try { saveWatches(watches); } catch { /* read-only on Vercel */ }
+      try {
+        saveWatches(watches);
+      } catch (err: any) {
+        console.error('[watches/:slug DELETE] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+      }
 
       return res.status(200).json({ success: true, status: 'SOLD' });
     } catch (error) {

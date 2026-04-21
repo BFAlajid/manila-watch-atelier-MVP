@@ -50,5 +50,6 @@ export const watchCreateSchema = z.object({
 export const watchUpdateSchema = watchCreateSchema.partial();
 
 export const inquiryStatusSchema = z.object({
-  status: z.enum(['NEW', 'CONTACTED', 'CLOSED']),
+  status: z.enum(['NEW', 'CONTACTED', 'FOLLOW_UP', 'CLOSED']),
+  lastContactedAt: z.string().datetime().optional(),
 });

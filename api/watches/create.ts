@@ -80,7 +80,11 @@ export default function handler(req: any, res: any) {
 
     watches.push(watch);
 
-    try { saveWatches(watches); } catch { /* read-only on Vercel */ }
+    try {
+      saveWatches(watches);
+    } catch (err: any) {
+      console.error('[watches/create] saveWatches failed (expected on Vercel read-only FS):', err?.message || err);
+    }
 
     return res.status(201).json({ success: true, watch });
   } catch (error) {

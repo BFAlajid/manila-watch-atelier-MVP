@@ -2,6 +2,7 @@
 import { getInquiries, saveInquiries } from '../_lib/data.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { inquiryStatusSchema } from '../_lib/validation.js';
 
 export default function handler(req: any, res: any) {
   setCorsHeaders(res);
@@ -24,12 +25,12 @@ export default function handler(req: any, res: any) {
   }
 
   try {
-    const { status } = req.body;
-
-    if (!status || !['NEW', 'CONTACTED', 'CLOSED'].includes(status)) {
-      return res
-        .status(400)
-        .json({ error: 'Invalid status. Must be NEW, CONTACTED, or CLOSED.' });
+    const parsed = inquiryStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: parsed.error.flatten().fieldErrors,
+      });
     }
 
     const inquiries = getInquiries();
@@ -38,13 +39,17 @@ export default function handler(req: any, res: any) {
       return res.status(404).json({ error: 'Inquiry not found' });
     }
 
-    inquiries[index] = { ...inquiries[index], status };
+    inquiries[index] = { ...inquiries[index], ...parsed.data };
 
-    try { saveInquiries(inquiries); } catch { /* read-only on Vercel */ }
+    try {
+      saveInquiries(inquiries);
+    } catch (err: any) {
+      console.error('[inquiries/:id] saveInquiries failed (expected on Vercel read-only FS):', err?.message || err);
+    }
 
     return res.status(200).json({ success: true, inquiry: inquiries[index] });
-  } catch (error) {
-    console.error('Error updating inquiry:', error);
+  } catch (error: any) {
+    console.error('Error updating inquiry:', error?.message || error);
     return res.status(500).json({ error: 'Failed to update inquiry' });
   }
 }
