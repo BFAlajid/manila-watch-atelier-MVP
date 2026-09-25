@@ -29,11 +29,13 @@ export default function SoldArchivePage() {
   const { formatPrice } = useWatch();
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/watches?status=ALL`)
-      .then(r => r.json())
-      .then(data => {
-        const sold = data.filter((w: SoldWatch) => w.status === 'SOLD');
-        setWatches(sold);
+    // Fetch only SOLD inventory — the server filters now, so we don't pull
+    // RESERVED / ARCHIVED / etc. into a public page. Aligns with the SEC-1
+    // auth check on /api/watches that gates non-public statuses.
+    fetch(`${API_BASE_URL}/watches?status=SOLD`)
+      .then((r) => r.json())
+      .then((data) => {
+        setWatches(Array.isArray(data) ? data : []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));

@@ -28,6 +28,18 @@ export const listWatches: Handler = async (ctx) => {
   const featured = pickString(ctx.query.featured);
 
   const targetStatus = status || 'AVAILABLE';
+
+  // SEC-1: Some statuses are intentionally public (AVAILABLE = current
+  // inventory; SOLD = the Sold Archive page — a deliberate product feature).
+  // Others (RESERVED = internal CRM state; ARCHIVED = hidden; ALL = the
+  // admin dashboard's full view) leak commercial intelligence and require
+  // a valid Bearer token. The admin dashboard sets the Authorization
+  // header on its list calls.
+  const PUBLIC_STATUSES: ReadonlySet<string> = new Set(['AVAILABLE', 'SOLD']);
+  if (!PUBLIC_STATUSES.has(targetStatus) && !ctx.auth.authenticated) {
+    return { status: 401, body: { error: 'Unauthorized' } };
+  }
+
   if (targetStatus !== 'ALL') {
     watches = watches.filter((w) => w.status === targetStatus);
   }
