@@ -10,6 +10,7 @@ import {
   MessageCircle, ExternalLink, Bot, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { applyBulkStatus, partitionBulkResults } from '../../lib/bulkResults';
 
 // ---------------------------------------------------------------------------
 // API config
@@ -816,18 +817,18 @@ export function AdminDashboard() {
             method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify({ status: newStatus }),
-          })
+          }).then((r) => ({ id: w.id, ok: r.ok }))
         )
       );
-      const failed = results.filter((r) => !r.ok).length;
-      setWatches((prev) =>
-        prev.map((w) => (selectedWatches.has(w.id) ? { ...w, status: newStatus } : w))
-      );
-      setSelectedWatches(new Set());
-      if (failed > 0) {
-        toast.warning(`${failed} of ${selectedArr.length} updates failed — refresh to see authoritative state.`);
+      const { okIds, failedIds } = partitionBulkResults(results);
+      // Only mutate the successful rows so the UI tracks server truth.
+      setWatches((prev) => applyBulkStatus(prev, okIds, newStatus));
+      // Keep failed rows selected so the user can retry them.
+      setSelectedWatches(new Set(failedIds));
+      if (failedIds.length > 0) {
+        toast.warning(`${failedIds.length} of ${selectedArr.length} updates failed — those watches kept their old status.`);
       } else {
-        toast.success(`${selectedArr.length} watch(es) marked ${label}`);
+        toast.success(`${okIds.length} watch(es) marked ${label}`);
       }
     } catch {
       toast.error('Some bulk status updates failed. Please refresh and try again.');
@@ -849,17 +850,18 @@ export function AdminDashboard() {
             method: 'PUT',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'SOLD' }),
-          })
+          }).then((r) => ({ id: w.id, ok: r.ok }))
         )
       );
-      const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) {
-        toast.warning(`${failed} of ${selectedArr.length} could not be marked SOLD. Refresh and retry those.`);
+      const { okIds, failedIds } = partitionBulkResults(results);
+      if (failedIds.length > 0) {
+        toast.warning(`${failedIds.length} of ${selectedArr.length} could not be marked SOLD. They stay selected so you can retry.`);
       } else {
-        toast.success(`${selectedArr.length} watch(es) marked SOLD`);
+        toast.success(`${okIds.length} watch(es) marked SOLD`);
       }
-      setWatches((prev) => prev.filter((w) => !selectedWatches.has(w.id)));
-      setSelectedWatches(new Set());
+      const sold = new Set(okIds);
+      setWatches((prev) => prev.filter((w) => !sold.has(w.id)));
+      setSelectedWatches(new Set(failedIds));
     } catch {
       toast.error('Some deletions failed. Please refresh and try again.');
     } finally {
