@@ -84,8 +84,9 @@ describe('POST /api/inquiries honeypot', () => {
     const res = await createInquiry(
       ctx({ method: 'POST', body: { ...valid, website: 'http://spam.example' } })
     );
-    // The schema caps the honeypot at 0 chars, so it is rejected before anything is stored.
-    expect(res.status).toBe(400);
+    // The honeypot is checked before validation; bots get a silent fake success and nothing is stored.
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ success: true, id: 'discarded' });
     expect(saveInquiries).not.toHaveBeenCalled();
     expect(sendInquiryNotification).not.toHaveBeenCalled();
   });

@@ -15,6 +15,16 @@ function pickString(v: string | string[] | undefined): string | undefined {
 export const createInquiry: Handler = async (ctx) => {
   if (ctx.method !== 'POST') return { status: 405, body: { error: 'Method not allowed' } };
 
+  // Honeypot check runs on the raw body, before zod: the schema rejects a
+  // filled honeypot, which would turn the silent fake success into a 400.
+  // Return a fake success so the bot thinks it worked, but don't persist,
+  // email, or rate-limit against the real user pool.
+  const rawWebsite = (ctx.body as { website?: unknown } | null | undefined)?.website;
+  if (typeof rawWebsite === 'string' && rawWebsite.length > 0) {
+    console.warn('[inquiries] honeypot triggered by', ctx.clientIP, '— silently discarded');
+    return { status: 201, body: { success: true, id: 'discarded' } };
+  }
+
   const parsed = inquirySchema.safeParse(ctx.body);
   if (!parsed.success) {
     return {
@@ -23,14 +33,7 @@ export const createInquiry: Handler = async (ctx) => {
     };
   }
 
-  const { name, email, phone, message, watchId, website } = parsed.data;
-
-  // Honeypot tripped — return a fake success so the bot thinks it worked,
-  // but don't persist, email, or rate-limit against the real user pool.
-  if (website && website.length > 0) {
-    console.warn('[inquiries] honeypot triggered by', ctx.clientIP, '— silently discarded');
-    return { status: 201, body: { success: true, id: 'discarded' } };
-  }
+  const { name, email, phone, message, watchId } = parsed.data;
 
   if (isRateLimited(`inquiry:${email}`, 3, 60 * 60 * 1000)) {
     return { status: 429, body: { error: 'Too many inquiries. Please try again later.' } };
